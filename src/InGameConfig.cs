@@ -1,0 +1,143 @@
+using BaseLib.Config;
+using Godot;
+using HarmonyLib;
+using MegaCrit.Sts2.Core.Models;
+using MegaCrit.Sts2.Core.Runs;
+using System.Runtime.CompilerServices;
+using MegaCrit.Sts2.Core.Localization;
+
+namespace ActFloorCustomizer;
+
+public static class InGameConfig
+{
+    public const string Id = "ActFloorCustomizer";
+    public static bool Registered { get; private set; }
+    public static string Translate(string key, string? language)
+    {
+        bool chinese = language is "zhs" or "zht" || (language?.StartsWith("zh", StringComparison.OrdinalIgnoreCase) ?? false);
+        return key switch
+        {
+            "Name" => chinese ? "每幕自定义加层" : "Act Floor Customizer",
+            "NextRun" => chinese ? "自动保存，下一局生效，无需重启" : "Auto-saved. Applies to your next run. No restart needed.",
+            "Act1" => chinese ? "第一幕额外层数" : "Act 1: extra floors",
+            "Act2" => chinese ? "第二幕额外层数" : "Act 2: extra floors",
+            "Act3" => chinese ? "第三幕额外层数" : "Act 3: extra floors",
+            "ExtraHint" => chinese ? "在原版层数上增加；0 表示不增加。" : "Added to the normal floor count. Set to 0 for no extra floors.",
+            "Coop" => chinese ? "联机：所有玩家版本和三个数字须一致" : "Co-op: everyone needs the same version and settings.",
+            "CurrentRun" => chinese ? "当前对局保留原设置，地图不会重画" : "Your current run keeps its settings and existing maps.",
+            _ => key
+        };
+    }
+    public static string Localize(string key) => Translate(key, LocManager.Instance?.Language);
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static void Register()
+    {
+        if (Registered) return;
+        // BaseLib loads its persisted .cfg in the constructor; legacy values are only defaults.
+        string dataDir = OS.GetUserDataDir();
+        if (!File.Exists(Path.Combine(dataDir, "mod_configs", "ActFloorCustomizer.cfg")))
+        {
+            string legacy = Path.Combine(dataDir, "mod_config", "ActFloorCustomizer.json");
+            if (File.Exists(legacy))
+            {
+                try
+                {
+                    using var json = System.Text.Json.JsonDocument.Parse(File.ReadAllText(legacy));
+                    var values = json.RootElement.GetProperty("values");
+                    FloorConfig.Act1ExtraFloors = values.GetProperty("Act1ExtraFloors").GetInt32();
+                    FloorConfig.Act2ExtraFloors = values.GetProperty("Act2ExtraFloors").GetInt32();
+                    FloorConfig.Act3ExtraFloors = values.GetProperty("Act3ExtraFloors").GetInt32();
+                }
+                catch (Exception ex) { Console.WriteLine("[ActFloorCustomizer] Legacy config migration: " + ex.Message); }
+            }
+        }
+        ModConfigRegistry.Register(Id, new FloorConfig());
+        Registered = true;
+    }
+}
+
+public sealed class FloorConfig : SimpleModConfig
+{
+    [ConfigSlider(0, 30, 1, Format = "{0:0}")]
+    public static int Act1ExtraFloors { get => ModEntry.Settings.Act1ExtraFloors; set => ModEntry.Settings.Act1ExtraFloors = Math.Clamp(value, 0, 30); }
+    [ConfigSlider(0, 30, 1, Format = "{0:0}")]
+    public static int Act2ExtraFloors { get => ModEntry.Settings.Act2ExtraFloors; set => ModEntry.Settings.Act2ExtraFloors = Math.Clamp(value, 0, 30); }
+    [ConfigSlider(0, 30, 1, Format = "{0:0}")]
+    public static int Act3ExtraFloors { get => ModEntry.Settings.Act3ExtraFloors; set => ModEntry.Settings.Act3ExtraFloors = Math.Clamp(value, 0, 30); }
+
+    public override void SetupConfigUI(Control optionContainer)
+    {
+        optionContainer.AddChild(CreateRawLabelControl(InGameConfig.Localize("NextRun"), 24));
+        optionContainer.AddChild(CreateRawLabelControl(InGameConfig.Localize("Coop"), 24));
+        base.SetupConfigUI(optionContainer);
+    }
+}
+
+// Scope localization to this config only; other BaseLib settings are unaffected.
+[HarmonyPatch(typeof(ModConfig), "GetLabelText", new Type[] { typeof(string), typeof(bool) })]
+internal static class BaseLibLabelPatch
+{
+    static bool Prefix(ModConfig __instance, string labelName, ref string __result)
+    {
+        if (__instance is not FloorConfig) return true;
+        string? key = labelName switch { "Act1ExtraFloors" => "Act1", "Act2ExtraFloors" => "Act2", "Act3ExtraFloors" => "Act3", _ => null };
+        if (key == null) return true;
+        __result = InGameConfig.Localize(key);
+        return false;
+    }
+}
+
+[HarmonyPatch(typeof(BaseLib.Config.UI.NModConfigSubmenu), "GetModTitle")]
+internal static class BaseLibTitlePatch
+{
+    static bool Prefix(ModConfig config, ref string __result)
+    {
+        if (config is not FloorConfig) return true;
+        __result = InGameConfig.Localize("Name");
+        return false;
+    }
+}
+public static class RunSettings
+{
+    private sealed record Snapshot(int Extra);
+    private static readonly ConditionalWeakTable<ActModel, Snapshot> Snapshots = new();
+    public static int ForAct(ActModel act) => Snapshots.TryGetValue(act, out var value) ? value.Extra : ModEntry.Settings.ForAct(act.Index);
+    public static void Bind(ActModel act, int extra)
+    {
+        Snapshots.Remove(act);
+        Snapshots.Add(act, new Snapshot(Math.Clamp(extra, 0, 30)));
+    }
+
+    // All acts are bound before the native encounter pools are generated.
+    public static void BindNewRun(RunState state)
+    {
+        foreach (var act in state.Acts) Bind(act, ModEntry.Settings.ForAct(act.Index));
+    }
+
+    // v0.2+ saves already store the full encounter pools for every act. Recover the
+    // run's original length from those pools, not the newly edited menu defaults.
+    public static void BindLoadedRun(RunState state)
+    {
+        foreach (var act in state.Acts)
+            BindLoadedAct(act, state.Players.Count > 1);
+    }
+    public static void BindLoadedAct(ActModel act, bool multiplayer)
+    {
+        int vanilla = (int)AccessTools.Property(act.GetType(), "BaseNumberOfRooms").GetValue(act)! - (multiplayer ? 1 : 0);
+        Bind(act, act.GetRoomsDebug().normalEncounters.Count - vanilla);
+    }
+}
+
+[HarmonyPatch(typeof(RunState), nameof(RunState.CreateForNewRun))]
+internal static class NewRunSettingsPatch
+{
+    static void Postfix(RunState __result) => RunSettings.BindNewRun(__result);
+}
+
+[HarmonyPatch(typeof(RunState), nameof(RunState.FromSerializable))]
+internal static class LoadedRunSettingsPatch
+{
+    static void Postfix(RunState __result) => RunSettings.BindLoadedRun(__result);
+}
+
+

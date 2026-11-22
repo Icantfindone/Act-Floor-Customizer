@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <EnableDynamicLoading>true</EnableDynamicLoading>
+    <GamePath Condition="'$(GamePath)' == ''">D:/Program Files (x86)/Steam/steamapps/common/Slay the Spire 2</GamePath>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="BaseLib"><HintPath>D:/Program Files (x86)/Steam/steamapps/workshop/content/2868840/3737335127/BaseLib/BaseLib.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="sts2"><HintPath>$(GamePath)/data_sts2_windows_x86_64/sts2.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="GodotSharp"><HintPath>$(GamePath)/data_sts2_windows_x86_64/GodotSharp.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="0Harmony"><HintPath>$(GamePath)/data_sts2_windows_x86_64/0Harmony.dll</HintPath><Private>false</Private></Reference>
+  </ItemGroup>
+</Project>
+

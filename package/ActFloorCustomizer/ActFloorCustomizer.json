@@ -1,0 +1,17 @@
+{
+  "id": "ActFloorCustomizer",
+  "name": "Act Floor Customizer / 每幕自定义加层",
+  "author": "Bobojo",
+  "description": "Configure extra floors in BaseLib ModConfig. Chinese/English. Co-op requires matching settings. 使用 BaseLib 游戏内配置，支持中英文；联机配置须一致。",
+  "version": "0.4.0",
+  "has_pck": false,
+  "has_dll": true,
+  "affects_gameplay": true,
+  "min_game_version": "0.113.1",
+  "dependencies": [
+    {
+      "id": "BaseLib",
+      "min_version": "3.4.8"
+    }
+  ]
+}

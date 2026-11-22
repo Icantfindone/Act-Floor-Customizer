@@ -1,0 +1,14 @@
+# Decompiled game and dependency reference material stays local.
+/inspection/
+**/bin/
+**/obj/
+**/config-tests/
+/test-results*.txt
+# Keep only the current distributable in the backup.
+/ActFloorCustomizer-*.zip
+!/ActFloorCustomizer-v0.4.0-sts2-v0.113.1.zip
+.vs/
+.idea/
+*.user
+*.suo
+*.pdb
