@@ -4,6 +4,10 @@ Targets **Slay the Spire 2 v0.113.1**. Uses **BaseLib's built-in ModConfig**, co
 
 ## Install on every player's computer
 
+**Easiest: subscribe on the Steam Workshop.** Open https://steamcommunity.com/sharedfiles/filedetails/?id=3843992717 and subscribe, plus its BaseLib prerequisite, then enable the mod in game and restart. No files to copy.
+
+Or install manually:
+
 1. Close the game. Subscribe to and enable [BaseLib by Alchyr](https://steamcommunity.com/sharedfiles/filedetails/?id=3737335127), including its supplied compatibility helper components.
 2. Extract `ActFloorCustomizer-v0.6.0-sts2-v0.113.1.zip`.
 3. In Steam, right-click the game → Manage → Browse local files. Copy the extracted `ActFloorCustomizer` folder into the game's `mods` folder. Create `mods` if necessary.

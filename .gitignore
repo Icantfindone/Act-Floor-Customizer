@@ -10,6 +10,12 @@
 !/ActFloorCustomizer-v0.6.0-sts2-v0.113.1.zip
 # Also ignore the mod's runtime diagnostic log.
 ActFloorCustomizer-diag.log
+# Third-party uploader binaries stay out of the repository.
+/workshop/ModUploader.exe
+/workshop/ModUploader.pdb
+/workshop/steam_api64.dll
+/workshop/steam_appid.txt
+/workshop/mod-uploader.log
 .vs/
 .idea/
 *.user

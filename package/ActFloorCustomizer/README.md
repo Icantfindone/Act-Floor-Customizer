@@ -2,6 +2,8 @@
 
 See 联机安装与使用说明.md or INSTALL_AND_COOP_EN.md for installation and co-op.
 
+**Steam Workshop:** https://steamcommunity.com/sharedfiles/filedetails/?id=3843992717 — subscribe here and enable BaseLib; no manual file copying needed. Workshop metadata for updates lives in `workshop/`.
+
 Adds extra floors to Acts 1, 2 and 3, configured in-game through BaseLib's own ModConfig UI. Uses `BaseLib.Config.SimpleModConfig` and `ModConfigRegistry` with three static integer properties and native `ConfigSlider` attributes. Scoped Harmony patches provide English/Chinese labels for this mod only. No BonModConfig assembly reference or dependency remains; the legacy JSON is read only for a one-time value migration.
 
 Target: game v0.113.1, BaseLib v3.4.8.
