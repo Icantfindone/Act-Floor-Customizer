@@ -203,17 +203,19 @@ public static class MapLayout
     }
 
     // ---------------------------------------------------------------------
-    // Map background: a three-part parchment (MapTop / MapMid / MapBot) laid
-    // out by a VBoxContainer at a fixed height. Growing the canvas leaves the
-    // upper rows without parchment, so the middle piece grows by the same
-    // amount and the whole scroll is lifted by that amount, which keeps the
-    // bottom edge and the rolled ends where they were.
+    // Map background: a three-part parchment (MapTop / MapMid / MapBot), three
+    // natively 1920x1080 pieces stacked by a VBoxContainer. Growing the canvas
+    // leaves the upper rows without parchment.
+    //
+    // Resizing only the middle piece does not work: its texture is drawn at its
+    // native size, so a taller box only adds empty space above and below the art
+    // (and the three pieces drift apart). Scale the whole scroll vertically and
+    // lift it so its bottom edge stays put; the pieces stay contiguous, keep
+    // their width, and stretch by the same factor as the map.
     // ---------------------------------------------------------------------
 
     private sealed class BgState
     {
-        public float BaseMidMin;
-        public float MinX;
         public float PositionDelta;
     }
 
@@ -247,25 +249,14 @@ public static class MapLayout
             }
             if (positionWasReset) state.PositionDelta = 0f;
 
-            float delta = VanillaHeight * (Stretch - 1f);
-            TextureRect? mid = bg.GetNodeOrNull<TextureRect>("MapMid");
-            if (mid is null)
-            {
-                Diag("bg: MapMid node not found");
-                return;
-            }
-            if (state.BaseMidMin <= 0f)
-            {
-                state.BaseMidMin = Math.Max(mid.CustomMinimumSize.Y, mid.Size.Y);
-                state.MinX = mid.CustomMinimumSize.X;
-            }
-            float target = state.BaseMidMin + delta;
-            if (Math.Abs(mid.CustomMinimumSize.Y - target) > 0.5f)
-                mid.CustomMinimumSize = new Vector2(state.MinX, target);
+            float stretch = Stretch;
+            float baseHeight = bg.Size.Y;
+            float growth = baseHeight * (stretch - 1f);
 
             float vanillaY = bg.Position.Y + state.PositionDelta;
-            bg.Position = new Vector2(bg.Position.X, vanillaY - delta);
-            state.PositionDelta = delta;
+            bg.Scale = new Vector2(1f, stretch);
+            bg.Position = new Vector2(bg.Position.X, vanillaY - growth);
+            state.PositionDelta = growth;
 
             try
             {
@@ -278,11 +269,9 @@ public static class MapLayout
             }
 
             NMapBg reference = bg;
-            Callable.From(() =>
-            {
-                TextureRect? settled = reference.GetNodeOrNull<TextureRect>("MapMid");
-                Diag($"bg stretch={Stretch:0.###} delta={delta:0.#} baseMidMin={state.BaseMidMin:0.#} midMin={(settled?.CustomMinimumSize.Y ?? -1f):0.#} midSize={(settled?.Size.Y ?? -1f):0.#} bgPosY={reference.Position.Y:0.#} bgSize={reference.Size}");
-            }).CallDeferred();
+            Callable.From(() => Diag(
+                $"bg stretch={stretch:0.###} baseH={baseHeight:0.#} growth={growth:0.#} " +
+                $"scaleY={reference.Scale.Y:0.###} posY={reference.Position.Y:0.#}")).CallDeferred();
         }
         catch (Exception ex)
         {

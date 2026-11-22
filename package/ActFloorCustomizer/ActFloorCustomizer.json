@@ -3,7 +3,7 @@
   "name": "Act Floor Customizer / 每幕自定义加层",
   "author": "Bobojo",
   "description": "Configure extra floors per act in BaseLib ModConfig; long maps keep the vanilla room spacing. Chinese/English. Co-op requires matching settings. 使用 BaseLib 游戏内配置，加长地图按原版间距绘制；支持中英文；联机配置须一致。",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "has_pck": false,
   "has_dll": true,
   "affects_gameplay": true,
