@@ -24,6 +24,9 @@ public static class InGameConfig
             "Act3" => chinese ? "第三幕额外层数" : "Act 3: extra floors",
             "ExtraHint" => chinese ? "在原版层数上增加；0 表示不增加。" : "Added to the normal floor count. Set to 0 for no extra floors.",
             "Coop" => chinese ? "联机：所有玩家版本和三个数字须一致" : "Co-op: everyone needs the same version and settings.",
+            "PerfHint" => chinese
+                ? "注意：地图增强的路线分析会穷举所有路线，层级太高会卡死。建议每幕不超过 15 层。"
+                : "Note: the map mod's route analysis enumerates every route and stalls on very long maps. Keep each act at 15 floors or below.",
             "CurrentRun" => chinese ? "当前对局保留原设置，地图不会重画" : "Your current run keeps its settings and existing maps.",
             _ => key
         };
@@ -69,6 +72,7 @@ public sealed class FloorConfig : SimpleModConfig
     {
         optionContainer.AddChild(CreateRawLabelControl(InGameConfig.Localize("NextRun"), 24));
         optionContainer.AddChild(CreateRawLabelControl(InGameConfig.Localize("Coop"), 24));
+        optionContainer.AddChild(CreateRawLabelControl(InGameConfig.Localize("PerfHint"), 24));
         base.SetupConfigUI(optionContainer);
     }
 }

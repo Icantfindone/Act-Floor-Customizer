@@ -224,7 +224,7 @@ static class ConfigHarness
 {
     public static void Check()
     {
-        foreach (string key in new[] { "Name", "NextRun", "Act1", "Act2", "Act3", "ExtraHint", "Coop", "CurrentRun" })
+        foreach (string key in new[] { "Name", "NextRun", "Act1", "Act2", "Act3", "ExtraHint", "Coop", "PerfHint", "CurrentRun" })
         {
             string english = InGameConfig.Translate(key, "eng");
             string chinese = InGameConfig.Translate(key, "zhs");
