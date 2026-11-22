@@ -44,6 +44,11 @@ public static class MapLayout
 
     public static void SetStretch(float value) => Stretch = Math.Max(1f, value);
 
+    public static long Mark() => System.Diagnostics.Stopwatch.GetTimestamp();
+
+    public static double Since(long mark)
+        => (System.Diagnostics.Stopwatch.GetTimestamp() - mark) * 1000.0 / System.Diagnostics.Stopwatch.Frequency;
+
     /// <summary>
     /// Canvas scale for a map with <paramref name="rows"/> rows where this mod added
     /// <paramref name="extra"/> of them. <c>rows - extra</c> is the row count the act would
@@ -291,12 +296,32 @@ public static class MapLayout
 [HarmonyPatch(typeof(NMapScreen), nameof(NMapScreen.SetMap))]
 internal static class MapScreenSetMapPatch
 {
+    private static long _start;
+    private static int _points;
+
     [HarmonyPrefix]
-    static void Prefix(NMapScreen __instance, ActMap map) => MapLayout.Begin(__instance, map);
+    static void Prefix(NMapScreen __instance, ActMap map)
+    {
+        _start = MapLayout.Mark();
+        _points = map.GetAllMapPoints().Count();
+        MapLayout.Diag($"setMap begin rows={map.GetRowCount()} points={_points} stretch={MapLayout.Stretch:0.###}");
+        MapLayout.Begin(__instance, map);
+    }
 
     [HarmonyPostfix]
     static void Postfix(NMapScreen __instance)
     {
+        int pathNodes = 0;
+        try
+        {
+            if (AccessTools.Field(typeof(NMapScreen), "_pathsContainer")?.GetValue(__instance) is Node paths)
+                pathNodes = paths.GetChildCount();
+        }
+        catch
+        {
+            // Diagnostics only.
+        }
+        MapLayout.Diag($"setMap done ms={MapLayout.Since(_start):0} points={_points} pathNodes={pathNodes}");
         if (AccessTools.Field(typeof(NMapScreen), "_mapBgContainer")?.GetValue(__instance) is NMapBg background)
             MapLayout.ApplyBackground(background, false);
     }

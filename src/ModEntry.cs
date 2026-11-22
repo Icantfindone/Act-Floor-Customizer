@@ -80,20 +80,32 @@ internal static class ModePatch
 {
     static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions) => RoomCountPatch.ReplaceCalls(instructions);
     internal static readonly ConditionalWeakTable<ActModel, object> BlitzActs = new();
+    private static long _start;
     static void Prefix(ActModel __instance, bool isBlitz)
     {
+        _start = MapLayout.Mark();
         BlitzActs.Remove(__instance);
         if (isBlitz) BlitzActs.Add(__instance, new object());
+    }
+    static void Postfix(ActModel __instance, bool isMultiplayer)
+    {
+        MapLayout.Diag($"generateRooms ms={MapLayout.Since(_start):0} act={__instance.Index} mp={isMultiplayer} rooms={__instance.GetNumberOfRooms(isMultiplayer)}");
     }
 }
 
 [HarmonyPatch(typeof(ActModel), nameof(ActModel.GetNumberOfRooms))]
 internal static class RoomCountPatch
 {
+    // EffectiveRooms is called from several hot paths (map layout, travelability, serialization),
+    // so resolve the base-count property once per act type instead of searching every call.
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<Type, PropertyInfo> BaseCountCache = new();
+
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static int EffectiveRooms(ActModel act, bool multiplayer)
     {
-        int original = (int)AccessTools.Property(act.GetType(), "BaseNumberOfRooms").GetValue(act)!;
+        PropertyInfo property = BaseCountCache.GetOrAdd(act.GetType(),
+            static type => AccessTools.Property(type, "BaseNumberOfRooms"));
+        int original = (int)property.GetValue(act)!;
         return original - (multiplayer ? 1 : 0) + (ModePatch.BlitzActs.TryGetValue(act, out _) ? 0 : RunSettings.ForAct(act));
     }
     public static IEnumerable<CodeInstruction> ReplaceCalls(IEnumerable<CodeInstruction> instructions)
@@ -124,8 +136,10 @@ internal static class RoomCountPatch
 internal static class LongMapPatch
 {
     static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions) => RoomCountPatch.ReplaceCalls(instructions);
+    private static long _start;
     static void Prefix(Rng mapRng, ActModel actModel, bool isMultiplayer, ref bool enablePruning, ref MapPointTypeCounts? mapPointTypeCountsOverride)
     {
+        _start = MapLayout.Mark();
         int extra = RunSettings.ForAct(actModel);
         if (extra == 0) return;
         enablePruning = false;
@@ -143,6 +157,7 @@ internal static class LongMapPatch
     }
     static void Postfix(StandardActMap __instance, ActModel actModel, bool isMultiplayer)
     {
+        MapLayout.Diag($"actMap ms={MapLayout.Since(_start):0} act={actModel.Index} mp={isMultiplayer} rows={__instance.GetRowCount()} points={__instance.GetAllMapPoints().Count()} extra={RunSettings.ForAct(actModel)}");
         Console.WriteLine($"[ActFloorCustomizer] Act {actModel.Index + 1}, multiplayer={isMultiplayer}, rooms={__instance.GetRowCount()-1}, bossRow={__instance.BossMapPoint.coord.row}");
     }
 }
