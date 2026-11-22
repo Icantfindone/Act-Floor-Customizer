@@ -1,5 +1,7 @@
 using System.Reflection;
 using System.Reflection.Emit;
+using System.Runtime.CompilerServices;
+using Godot;
 using HarmonyLib;
 using MegaCrit.Sts2.Core.Map;
 using MegaCrit.Sts2.Core.Models;
@@ -199,6 +201,94 @@ public static class MapLayout
         if (ScrollReplacements < 3)
             Console.WriteLine("[ActFloorCustomizer] WARNING: scroll limit constants not found as expected; the top of long maps may be unreachable.");
     }
+
+    // ---------------------------------------------------------------------
+    // Map background: a three-part parchment (MapTop / MapMid / MapBot) laid
+    // out by a VBoxContainer at a fixed height. Growing the canvas leaves the
+    // upper rows without parchment, so the middle piece grows by the same
+    // amount and the whole scroll is lifted by that amount, which keeps the
+    // bottom edge and the rolled ends where they were.
+    // ---------------------------------------------------------------------
+
+    private sealed class BgState
+    {
+        public float BaseMidMin;
+        public float MinX;
+        public float PositionDelta;
+    }
+
+    private static readonly ConditionalWeakTable<NMapBg, BgState> BgStates = new();
+
+    private static readonly string DiagPath = Path.Combine(
+        Path.GetDirectoryName(typeof(MapLayout).Assembly.Location) ?? ".",
+        "ActFloorCustomizer-diag.log");
+
+    /// <summary>Best-effort diagnostic log; the game does not keep standard output.</summary>
+    public static void Diag(string message)
+    {
+        try
+        {
+            File.AppendAllText(DiagPath, $"{DateTime.Now:yyyy-MM-dd HH:mm:ss} {message}{System.Environment.NewLine}");
+        }
+        catch
+        {
+            // Diagnostics must never break the game.
+        }
+    }
+
+    public static void ApplyBackground(NMapBg bg, bool positionWasReset)
+    {
+        try
+        {
+            if (!BgStates.TryGetValue(bg, out BgState? state))
+            {
+                state = new BgState();
+                BgStates.Add(bg, state);
+            }
+            if (positionWasReset) state.PositionDelta = 0f;
+
+            float delta = VanillaHeight * (Stretch - 1f);
+            TextureRect? mid = bg.GetNodeOrNull<TextureRect>("MapMid");
+            if (mid is null)
+            {
+                Diag("bg: MapMid node not found");
+                return;
+            }
+            if (state.BaseMidMin <= 0f)
+            {
+                state.BaseMidMin = Math.Max(mid.CustomMinimumSize.Y, mid.Size.Y);
+                state.MinX = mid.CustomMinimumSize.X;
+            }
+            float target = state.BaseMidMin + delta;
+            if (Math.Abs(mid.CustomMinimumSize.Y - target) > 0.5f)
+                mid.CustomMinimumSize = new Vector2(state.MinX, target);
+
+            float vanillaY = bg.Position.Y + state.PositionDelta;
+            bg.Position = new Vector2(bg.Position.X, vanillaY - delta);
+            state.PositionDelta = delta;
+
+            try
+            {
+                if (AccessTools.Field(typeof(NMapBg), "_drawings")?.GetValue(bg) is NMapDrawings drawings)
+                    drawings.RepositionBasedOnBackground(bg);
+            }
+            catch (Exception ex)
+            {
+                Diag("bg: drawings reposition failed: " + ex.Message);
+            }
+
+            NMapBg reference = bg;
+            Callable.From(() =>
+            {
+                TextureRect? settled = reference.GetNodeOrNull<TextureRect>("MapMid");
+                Diag($"bg stretch={Stretch:0.###} delta={delta:0.#} baseMidMin={state.BaseMidMin:0.#} midMin={(settled?.CustomMinimumSize.Y ?? -1f):0.#} midSize={(settled?.Size.Y ?? -1f):0.#} bgPosY={reference.Position.Y:0.#} bgSize={reference.Size}");
+            }).CallDeferred();
+        }
+        catch (Exception ex)
+        {
+            Diag("bg: stretch failed: " + ex.Message);
+        }
+    }
 }
 
 [HarmonyPatch(typeof(NMapScreen), nameof(NMapScreen.SetMap))]
@@ -207,9 +297,23 @@ internal static class MapScreenSetMapPatch
     [HarmonyPrefix]
     static void Prefix(NMapScreen __instance, ActMap map) => MapLayout.Begin(__instance, map);
 
+    [HarmonyPostfix]
+    static void Postfix(NMapScreen __instance)
+    {
+        if (AccessTools.Field(typeof(NMapScreen), "_mapBgContainer")?.GetValue(__instance) is NMapBg background)
+            MapLayout.ApplyBackground(background, false);
+    }
+
     [HarmonyTranspiler]
     static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions)
         => MapLayout.StretchSetMap(instructions);
+}
+
+[HarmonyPatch(typeof(NMapBg), "OnViewportChange")]
+internal static class MapBgViewportPatch
+{
+    [HarmonyPostfix]
+    static void Postfix(NMapBg __instance) => MapLayout.ApplyBackground(__instance, true);
 }
 
 [HarmonyPatch(typeof(NMapScreen), "UpdateScrollPosition")]

@@ -1,4 +1,4 @@
-# ActFloorCustomizer v0.5.0
+# ActFloorCustomizer v0.5.1
 
 See 联机安装与使用说明.md or INSTALL_AND_COOP_EN.md for installation and co-op.
 
@@ -6,9 +6,9 @@ Adds extra floors to Acts 1, 2 and 3, configured in-game through BaseLib's own M
 
 Target: game v0.113.1, BaseLib v3.4.8.
 
-## What v0.5.0 changes
+## What v0.5.1 changes
 
-A longer map used to be drawn on the same fixed-height canvas, so the per-row distance shrank and, past roughly 23 rows, went negative: rooms sat on top of each other. The map screen now keeps the vanilla row spacing and grows the canvas with the row count instead, moves the boss marker up by the same amount, and extends the top scroll limit so the added rows remain reachable. Column spacing and room size are unchanged. With every floor setting at 0 the replacements return the exact vanilla constants, so drawing is unchanged.
+A longer map used to be drawn on the same fixed-height canvas, so the per-row distance shrank and, past roughly 23 rows, went negative: rooms sat on top of each other. The map screen now keeps the vanilla row spacing and grows the canvas with the row count instead, moves the boss marker up by the same amount, and extends the top scroll limit so the added rows remain reachable. The parchment background is a three-part scroll, so its middle piece grows by the same amount and the whole scroll is lifted, keeping the rolled ends intact. Column spacing and room size are unchanged. With every floor setting at 0 the replacements return the exact vanilla constants, so drawing is unchanged.
 
 ## Verification status
 
