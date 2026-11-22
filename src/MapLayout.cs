@@ -251,10 +251,17 @@ public static class MapLayout
 
             float stretch = Stretch;
             float baseHeight = bg.Size.Y;
-            float growth = baseHeight * (stretch - 1f);
+            // Grow the sheet by exactly the amount the map canvas grew, so the sheet keeps the
+            // vanilla relationship to the rooms (its top stays a fixed distance below the boss,
+            // its bottom stays below the first room), instead of scaling its own height.
+            float growth = VanillaHeight * (stretch - 1f);
+            float scale = baseHeight <= 1f ? 1f : (baseHeight + growth) / baseHeight;
 
             float vanillaY = bg.Position.Y + state.PositionDelta;
-            bg.Scale = new Vector2(1f, stretch);
+            // Control.Scale pivots around PivotOffset. With a non-zero pivot the sheet grows in
+            // both directions, which lifts its bottom edge and pushes its top past the screen.
+            bg.PivotOffset = Vector2.Zero;
+            bg.Scale = new Vector2(1f, scale);
             bg.Position = new Vector2(bg.Position.X, vanillaY - growth);
             state.PositionDelta = growth;
 
@@ -271,7 +278,8 @@ public static class MapLayout
             NMapBg reference = bg;
             Callable.From(() => Diag(
                 $"bg stretch={stretch:0.###} baseH={baseHeight:0.#} growth={growth:0.#} " +
-                $"scaleY={reference.Scale.Y:0.###} posY={reference.Position.Y:0.#}")).CallDeferred();
+                $"scaleY={reference.Scale.Y:0.###} posY={reference.Position.Y:0.#} " +
+                $"bottom={reference.Position.Y + baseHeight * reference.Scale.Y:0.#}")).CallDeferred();
         }
         catch (Exception ex)
         {
