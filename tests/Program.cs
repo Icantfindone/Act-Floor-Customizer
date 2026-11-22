@@ -23,6 +23,8 @@ static void RunTests()
     RuntimeHelpers.PrepareMethod(typeof(ActModel).GetMethod("GenerateRooms", new[] { typeof(Rng), typeof(UnlockState), typeof(bool), typeof(bool) })!.MethodHandle);
 
     ModEntry.LoadAndPatch();
+    LayoutHarness.Check();
+    LayoutHarness.CheckTranspiler();
     ConfigHarness.Check();
     var managerState = typeof(MegaCrit.Sts2.Core.Modding.ModManager).GetProperty("State")!;
     managerState.SetValue(null, Enum.Parse(managerState.PropertyType, "Initialized"));
@@ -125,6 +127,97 @@ static class HeadlessLogging
             yield return instruction;
         }
     }
+}
+
+static class LayoutHarness
+{
+    public static void Check()
+    {
+        // These counters prove the transpilers found the real constants in the game assembly.
+        if (MapLayout.HeightReplacements != 1) throw new Exception($"map height constant replaced {MapLayout.HeightReplacements} times, expected 1");
+        if (MapLayout.BossReplacements != 2) throw new Exception($"boss constants replaced {MapLayout.BossReplacements} times, expected 2");
+        if (MapLayout.ScrollReplacements < 3) throw new Exception($"scroll limit constants replaced {MapLayout.ScrollReplacements} times, expected at least 3");
+
+        // At stretch 1 every replacement must reproduce the original constant exactly.
+        MapLayout.SetStretch(1f);
+        Require(Near(MapLayout.BaseHeight, 2325f), "vanilla height changed");
+        Require(Near(MapLayout.ScrollTop, 1800f), "vanilla scroll top changed");
+        Require(Near(MapLayout.FixBossY(-1980f), -1980f), "vanilla boss position changed");
+        Require(Near(MapLayout.FixSecondBossY(-2280f), -2280f), "vanilla second boss changed");
+        Require(Near(MapLayout.FixBossY(-1782f), -1782f), "vanilla two-boss position changed");
+        Require(Near(MapLayout.FixSecondBossY(-2052f), -2052f), "vanilla two-boss second position changed");
+
+        // The distance from the boss marker to the last row must not change with stretch:
+        // lastRowY = 1280 - BaseHeight * num, and both the last row and the boss move up by
+        // exactly the same amount, so the gap the act art relies on stays put.
+        var gaps = new (float Stretch, float Num, float Expected)[]
+        {
+            (1f, 1f, -935f), (1f, 0.9f, -969.5f),
+            (2f, 1f, -935f), (2f, 0.9f, -969.5f),
+            (3f, 1f, -935f), (3f, 0.9f, -969.5f),
+        };
+        foreach (var (stretch, num, expected) in gaps)
+        {
+            MapLayout.SetStretch(stretch);
+            float gap = MapLayout.FixBossY(-1980f * num) - (1280f - MapLayout.BaseHeight * num);
+            Require(Near(gap, expected), $"boss gap changed at stretch {stretch}, num {num}: {gap} != {expected}");
+        }
+
+        // Node pitch: stretch must grow the canvas by exactly one vanilla height per unit.
+        MapLayout.SetStretch(2f);
+        Require(Near(MapLayout.BaseHeight, 4650f), "stretched height");
+        Require(Near(MapLayout.ScrollTop, 4125f), "stretched scroll top");
+        Require(Near(MapLayout.FixBossY(-1980f), -4305f), "stretched boss");
+
+        // Ratio maths: extra floors over the act's vanilla row count.
+        Require(Near(MapLayout.ComputeStretch(16, 0), 1f), "no extra floors must not stretch");
+        Require(Near(MapLayout.ComputeStretch(26, 10), 25f / 15f), "10 extra floors on a 15-row act");
+        Require(Near(MapLayout.ComputeStretch(46, 30), 3f), "30 extra floors on a 15-row act");
+        Require(Near(MapLayout.ComputeStretch(16, 99), 1f), "degenerate row count must fall back to vanilla");
+        Require(Near(MapLayout.ComputeStretch(6, 0), 1f), "short act must not stretch");
+
+        MapLayout.SetStretch(1f);
+        Console.WriteLine("PASS: map layout stretch maths, vanilla equivalence, boss gap preservation and patch coverage.");
+    }
+
+    public static void CheckTranspiler()
+    {
+        // Synthetic instruction stream shaped like NMapScreen.SetMap, to pin the rewrite rules.
+        var setMap = new List<HarmonyLib.CodeInstruction>
+        {
+            new(System.Reflection.Emit.OpCodes.Ldc_R4, 2325f),
+            new(System.Reflection.Emit.OpCodes.Ldloc_0),
+            new(System.Reflection.Emit.OpCodes.Mul),
+            new(System.Reflection.Emit.OpCodes.Ldc_R4, -1980f),
+            new(System.Reflection.Emit.OpCodes.Ldloc_0),
+            new(System.Reflection.Emit.OpCodes.Mul),
+            new(System.Reflection.Emit.OpCodes.Ldc_R4, -2280f),
+            new(System.Reflection.Emit.OpCodes.Ldloc_0),
+            new(System.Reflection.Emit.OpCodes.Mul),
+        };
+        var rewritten = MapLayout.StretchSetMap(setMap).ToList();
+        if (rewritten.Any(i => i.opcode == System.Reflection.Emit.OpCodes.Ldc_R4 && (float)i.operand! == 2325f))
+            throw new Exception("2325 was not replaced");
+        var calls = rewritten.Where(i => i.opcode == System.Reflection.Emit.OpCodes.Call).Select(i => ((MethodInfo)i.operand!).Name).ToList();
+        if (calls.Count(n => n == "get_BaseHeight") != 1) throw new Exception("base height call missing");
+        if (calls.Count(n => n == "FixBossY") != 1) throw new Exception("boss fix call missing");
+        if (calls.Count(n => n == "FixSecondBossY") != 1) throw new Exception("second boss fix call missing");
+        if (calls.Count != 3) throw new Exception("unexpected extra calls in SetMap rewrite: " + string.Join(",", calls));
+
+        var scroll = MapLayout.StretchScrollTop(new List<HarmonyLib.CodeInstruction>
+        {
+            new(System.Reflection.Emit.OpCodes.Ldc_R4, 1800f),
+            new(System.Reflection.Emit.OpCodes.Ldc_R4, 1800f),
+        }).ToList();
+        if (scroll.Count != 2 || scroll.Any(i => i.opcode != System.Reflection.Emit.OpCodes.Call))
+            throw new Exception("scroll limit constants were not both replaced");
+
+        Console.WriteLine("PASS: layout transpilers rewrite the expected instruction patterns.");
+    }
+
+    static bool Near(float a, float b) => Math.Abs(a - b) < 0.01f;
+
+    static void Require(bool ok, string message) { if (!ok) throw new Exception(message); }
 }
 
 static class ConfigHarness

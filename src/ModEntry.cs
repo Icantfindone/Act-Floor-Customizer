@@ -23,7 +23,10 @@ public static class ModEntry
     {
         string directory = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)!;
         Settings = FloorSettings.Read(Path.Combine(directory, "settings.cfg"));
-        new Harmony("bobojo.ActFloorCustomizer").PatchAll();
+        var harmony = new Harmony("bobojo.ActFloorCustomizer");
+        harmony.PatchAll();
+        MapLayout.ApplyExtraPatches(harmony);
+        MapLayout.Report();
         Console.WriteLine($"[ActFloorCustomizer] Extra floors: {Settings.Act1ExtraFloors}, {Settings.Act2ExtraFloors}, {Settings.Act3ExtraFloors}");
     }
 }
