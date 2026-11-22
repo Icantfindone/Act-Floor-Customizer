@@ -226,13 +226,53 @@ public static class MapLayout
 
     private static readonly ConditionalWeakTable<NMapBg, BgState> BgStates = new();
 
-    private static readonly string DiagPath = Path.Combine(
-        Path.GetDirectoryName(typeof(MapLayout).Assembly.Location) ?? ".",
-        "ActFloorCustomizer-diag.log");
+    /// <summary>
+    /// Set by <see cref="ModEntry.Initialize"/>. The offline test harness calls LoadAndPatch
+    /// directly, and writing diagnostics there would both pollute the player's log and touch
+    /// Godot APIs that only exist inside the running game.
+    /// </summary>
+    public static bool DiagnosticsEnabled { get; set; }
+
+    // Resolved lazily: touching OS.GetUserDataDir outside the engine faults.
+    private static string? _diagPath;
+
+    private static string DiagPath => _diagPath ??= ResolveDiagPath();
+
+    /// <summary>
+    /// Diagnostics go to the game's user data folder, never next to the DLL: a Workshop
+    /// install lives under steamapps\workshop and must stay untouched.
+    /// </summary>
+    private static string ResolveDiagPath()
+    {
+        try
+        {
+            string userDir = OS.GetUserDataDir();
+            if (!string.IsNullOrEmpty(userDir))
+                return Path.Combine(userDir, "ActFloorCustomizer-diag.log");
+        }
+        catch
+        {
+            // Fall back to the roaming profile, then to the mod folder.
+        }
+        try
+        {
+            string appData = System.Environment.GetFolderPath(System.Environment.SpecialFolder.ApplicationData);
+            if (!string.IsNullOrEmpty(appData))
+                return Path.Combine(appData, "SlayTheSpire2", "ActFloorCustomizer-diag.log");
+        }
+        catch
+        {
+            // Ignore.
+        }
+        return Path.Combine(
+            Path.GetDirectoryName(typeof(MapLayout).Assembly.Location) ?? ".",
+            "ActFloorCustomizer-diag.log");
+    }
 
     /// <summary>Best-effort diagnostic log; the game does not keep standard output.</summary>
     public static void Diag(string message)
     {
+        if (!DiagnosticsEnabled) return;
         try
         {
             File.AppendAllText(DiagPath, $"{DateTime.Now:yyyy-MM-dd HH:mm:ss} {message}{System.Environment.NewLine}");

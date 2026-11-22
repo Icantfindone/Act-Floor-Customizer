@@ -16,6 +16,7 @@ public static class ModEntry
     public static FloorSettings Settings { get; private set; } = new();
     public static void Initialize()
     {
+        MapLayout.DiagnosticsEnabled = true;
         LoadAndPatch();
         InGameConfig.Register();
     }

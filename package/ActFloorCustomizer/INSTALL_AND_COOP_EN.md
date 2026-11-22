@@ -1,11 +1,11 @@
-# Act Floor Customizer v0.5.5 — installation and co-op
+# Act Floor Customizer v0.6.0 — installation and co-op
 
 Targets **Slay the Spire 2 v0.113.1**. Uses **BaseLib's built-in ModConfig**, compiled against the installed BaseLib v3.4.8 API.
 
 ## Install on every player's computer
 
 1. Close the game. Subscribe to and enable [BaseLib by Alchyr](https://steamcommunity.com/sharedfiles/filedetails/?id=3737335127), including its supplied compatibility helper components.
-2. Extract `ActFloorCustomizer-v0.5.5-sts2-v0.113.1.zip`.
+2. Extract `ActFloorCustomizer-v0.6.0-sts2-v0.113.1.zip`.
 3. In Steam, right-click the game → Manage → Browse local files. Copy the extracted `ActFloorCustomizer` folder into the game's `mods` folder. Create `mods` if necessary.
 4. Launch the game, enable the mod, and restart if prompted. When updating, replace existing files rather than keeping multiple versions.
 
@@ -37,7 +37,7 @@ On first upgrade, the mod migrates its old BonModConfig values if present; other
 
 Vanilla packs every room into one fixed-height map canvas, with row spacing = (canvas height − sum of row heights) ÷ (rows − 1). Extra floors add rows without adding canvas, so the spacing is thinned out; past roughly 23 rows it turns negative and rooms start overlapping — that is why a long map looked cramped and two rooms sometimes sat on top of each other.
 
-v0.5.5 keeps the vanilla spacing and grows the canvas instead: the vertical distance between rows matches the same act's vanilla map, the canvas height grows with the row count, the boss marker moves up by the same amount, and the top scroll limit grows with it so the added rows stay reachable. Column spacing and room icon size are unchanged; only the map gets longer.
+v0.6.0 keeps the vanilla spacing and grows the canvas instead: the vertical distance between rows matches the same act's vanilla map, the canvas height grows with the row count, the boss marker moves up by the same amount, and the top scroll limit grows with it so the added rows stay reachable. Column spacing and room icon size are unchanged; only the map gets longer.
 
 - With all three sliders at 0 every replacement returns the original constant, so drawing is identical to vanilla.
 - The parchment background grows with the map: it is a three-part scroll whose bottom edge stays put and whose height grows by exactly the amount the map grew, with the parchment stretched to fill. No gaps, and the three pieces keep a consistent width.
@@ -52,7 +52,7 @@ Long maps skip the native duplicate-path pruning pass to avoid excessive generat
 
 Existing maps are not regenerated. Standard v0.2+ saves recover their settings from saved encounter pool lengths. Start a new run when upgrading from v0.1.0. Other mods that modify maps or encounter pools need separate compatibility testing. Blitz is unsupported.
 
-112 offline map/encounter regression cases pass, along with checks of the BaseLib config type, slider ranges, clamping and translations. v0.5.5 also verifies the drawing patches against the shipping assembly: the map height constant is replaced once, both boss offsets, and all four scroll-limit constants (`height=1, boss=2, scroll=4`), with tests asserting that stretch 1 reproduces every vanilla constant and that the boss-to-last-row gap is preserved at 1x, 2x and 3x.
+112 offline map/encounter regression cases pass, along with checks of the BaseLib config type, slider ranges, clamping and translations. v0.6.0 also verifies the drawing patches against the shipping assembly: the map height constant is replaced once, both boss offsets, and all four scroll-limit constants (`height=1, boss=2, scroll=4`), with tests asserting that stretch 1 reproduces every vanilla constant and that the boss-to-last-row gap is preserved at 1x, 2x and 3x.
 
 Real-game evidence (2026-11-22, this machine's log): the game loaded the mod and logged `[BaseLib] Registered config for mod ActFloorCustomizer`; opening BaseLib's mod config page ran `Setting up SimpleModConfig ActFloorCustomizer.FloorConfig` and built the slider controls; quitting ran `[BaseLib] NGame.Quit(): saving all ModConfigs` and produced `%APPDATA%\SlayTheSpire2\mod_configs\ActFloorCustomizer.cfg` (10 / 10 / 10 at the time). See `evidence/verification-2026-11-22-ingame.md`.
 
