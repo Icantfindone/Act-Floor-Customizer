@@ -82,6 +82,15 @@ The full list of changes for every version is in [CHANGELOG.md](CHANGELOG.md).
 - Diagnostics are opt-in: create `%APPDATA%\SlayTheSpire2\ActFloorCustomizer-test.txt` to get
   `ActFloorCustomizer-diag.log`, delete it to stop. A normal install writes no log.
 
+## Credits and AI assistance
+
+This is an unofficial fan mod. It is not affiliated with Mega Crit and is not supported by them.
+
+The code and the documentation were written with AI assistance: ChatGPT produced the first working
+version, and DeepSeek wrote the map stretching, the special act maps, the room mix and the co-op
+sync on top of it. I (Bobojo) chose the features, tested every build in game, reported the bugs and
+decided what shipped. If you prefer mods written entirely by hand, this one does not qualify.
+
 ## Layout
 
 - `src/ModEntry.cs` — settings, Harmony setup, patches on `ActModel` room counts.

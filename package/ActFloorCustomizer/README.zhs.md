@@ -74,6 +74,14 @@
 - 诊断日志默认关闭：放一个 `%APPDATA%\SlayTheSpire2\ActFloorCustomizer-test.txt` 才会生成
   `ActFloorCustomizer-diag.log`，删掉就停止；正常安装不写任何日志文件。
 
+## 关于 AI 参与
+
+这是一个非官方的玩家自制模组，与 Mega Crit 无关，也不受其支持。
+
+代码和文档是**在 AI 辅助下写的**：最初的可用版本由 ChatGPT 完成，之后的地图拉伸、特殊地图、
+房间比例和联机同步由 DeepSeek 在原有代码上继续写。功能取舍、拆包安装、游戏内实测、报错定位
+和每个版本发不发，都由我（Bobojo）决定。如果你只接受纯手工编写的模组，这个不符合。
+
 ## 目录结构
 
 - `src/ModEntry.cs` —— 设置、Harmony 初始化、`ActModel` 房间数补丁。

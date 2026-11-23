@@ -1,4 +1,4 @@
-# ActFloorCustomizer v0.7.2
+# ActFloorCustomizer v0.8.2
 
 See 联机安装与使用说明.md or INSTALL_AND_COOP_EN.md for installation and co-op.
 
@@ -57,3 +57,27 @@ Extra floors multiply the work every map-drawing mod does per frame, so a mod th
 - `evidence/` — original test log and the real-game config-page log evidence.
 
 Build with .NET 9: `dotnet build src/ActFloorCustomizer.csproj -c Release -p:UseSharedCompilation=false`. Update the game and BaseLib reference paths in the project file on another computer. Do not distribute the referenced game or third-party assemblies.
+
+## Releasing (every version)
+
+The Workshop is not the only way to install the mod: people also copy a folder into `mods\`, so
+every release also has to exist as a zip in the GitHub release. The order is:
+
+1. Bump the version in `package/ActFloorCustomizer/ActFloorCustomizer.json`, and add the release
+   notes to `CHANGELOG.md` / `CHANGELOG.zhs.md` plus the short "latest release" section in
+   `README.md` / `README.zhs.md`.
+2. `pwsh tools\release.ps1 -Version 0.8.3` — builds, runs the offline suite, refreshes
+   `package/`, writes `ActFloorCustomizer-v0.8.3-sts2-v0.113.1.zip` with forward-slash entries,
+   and points the `.gitignore` exception at the new zip (old zips are removed).
+3. Copy `package/ActFloorCustomizer/*.dll|json` and `workshop/workshop.json` into the uploader
+   workspace, run `ModUploader.exe upload -w ActFloorCustomizer`, then publish the Chinese variant
+   with `workshop/localizer/WorkshopLocalizer.exe`.
+4. `python tools\publish-release.py --version 0.8.3 --notes-file <notes.md>` with `GH_TOKEN` set —
+   creates the git tag and release and uploads the zip as a release asset (an existing release for
+   the same tag is reused and its asset replaced).
+5. `git add -A`, commit, push. `remote.origin.url` must stay token-free; push with
+   `git -c http.sslBackend=openssl push https://<token>@github.com/... main` and never with `-u`.
+
+The release notes should say what manual install means: download the zip, unzip it, copy the
+`ActFloorCustomizer` folder into `Slay the Spire 2\mods\`, and install BaseLib.
+
