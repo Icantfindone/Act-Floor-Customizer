@@ -5,6 +5,25 @@ English version: [CHANGELOG.md](CHANGELOG.md)
 
 ---
 
+## 0.8.3 — 2026-11-23
+
+### 加上仓库链接
+创意工坊页面（英文基础版和简体中文版）开头多了「Links / 相关链接」小节，分别指向仓库和发行版页面；
+游戏内模组列表显示的模组说明末尾也加了 `github.com/Icantfindone/Act-Floor-Customizer`，所以在游戏里
+或 Steam 上看到这个模组的人都能找到源码、更新日志和手动安装包。
+
+### 每个发行版都附带可安装的 zip
+0.8.3 以及之后每个版本的 GitHub 发行版都会附带
+`ActFloorCustomizer-v<版本>-sts2-v0.113.1.zip`：里面是完整的 `ActFloorCustomizer` 文件夹
+（dll、json、配置、中英文说明、更新日志、安装指南），手动安装就是解压 + 复制进 `mods\`。
+发版由 `tools/release.ps1`（编译、测试、打包、生成 zip）和 `tools/publish-release.py`
+（创建或更新发行版并上传附件）完成，顺序写在 `workshop/README.md` 里。
+
+### 模组说明
+manifest 里的说明末尾加上了 GitHub 地址——游戏内模组列表只能显示纯文本，这已经是它能放链接的方式。
+
+---
+
 ## 0.8.2 — 2026-11-23
 
 ### 藏宝图：红叉标到真正的宝箱上了

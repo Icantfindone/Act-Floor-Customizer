@@ -5,6 +5,28 @@ Every release, newest first. Game version: Slay the Spire 2 v0.113.1.
 
 ---
 
+## 0.8.3 — 2026-11-23
+
+### Links to the repository
+The Workshop pages (English base and 简体中文) now start with a **Links** section pointing at the
+repository and at the releases page, and the mod description shown by the in-game mod list ends with
+`github.com/Icantfindone/Act-Floor-Customizer`, so players who find the mod in game or on Steam can
+reach the source, the changelog and the manual-install packages.
+
+### Every release ships an installable zip
+The GitHub release for 0.8.3 and every later version carries
+`ActFloorCustomizer-v<version>-sts2-v0.113.1.zip` as a release asset: it contains the
+`ActFloorCustomizer` folder (dll, json, settings, readmes, changelog, install guides), so manual
+install is unzip + copy into `mods\`. Releases are produced by `tools/release.ps1` (build, tests,
+package, zip) and `tools/publish-release.py` (create or update the release and upload the asset); the
+order is documented in `workshop/README.md`.
+
+### Mod description
+The manifest description now ends with the GitHub address, which is the only link the in-game mod
+list can show (it renders plain text).
+
+---
+
 ## 0.8.2 — 2026-11-23
 
 ### Treasure map: the marker points at the real chest

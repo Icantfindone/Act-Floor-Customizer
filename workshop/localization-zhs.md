@@ -13,7 +13,7 @@ Steam 上传器（ModUploader）的 `workshop.json` 只有一个标题和一个�
 cd workshop\localizer
 dotnet build -c Release
 cd bin\Release\net9.0
-.\WorkshopLocalizer.exe "..\..\..\..\localization-zhs.md" "0.8.2：藏宝图红叉修正"
+.\WorkshopLocalizer.exe "..\..\..\..\localization-zhs.md" "0.8.3：模组说明与创意工坊增加 GitHub 链接"
 ```
 
 要求：Steam 客户端已登录、以 `danger-full-access` 运行。下面两个代码块会被工具自动读取
@@ -37,6 +37,12 @@ csproj 已自动拷贝正确的那份，不需要手动复制。
 ```
 [h1]每幕自定义加层[/h1]
 在游戏内给第一、二、三幕分别增加 0～50 个普通楼层，并通过 BaseLib 的模组配置页调节。
+
+[h2]相关链接[/h2]
+[list]
+[*][url=https://github.com/Icantfindone/Act-Floor-Customizer]GitHub 仓库：源码、更新日志、中英文说明[/url]
+[*][url=https://github.com/Icantfindone/Act-Floor-Customizer/releases]GitHub 发行版：手动安装用的 zip 压缩包[/url]
+[/list]
 
 [h2]功能[/h2]
 [list]
