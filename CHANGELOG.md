@@ -5,6 +5,20 @@ Every release, newest first. Game version: Slay the Spire 2 v0.113.1.
 
 ---
 
+## 0.8.2 — 2026-11-23
+
+### Treasure map: the marker points at the real chest
+The treasure map card remembers its special chest by taking the first point of type "treasure" in
+the map. With bonus treasure rows, that was the first chest of an ordinary bonus row, so the
+"X marks the spot" marker appeared on a row that also had other chests, while the real special
+chest sat alone without a marker.
+
+The card is now pointed back at the treasure map's own chest row: the marker sits on the special
+chest, that row holds nothing but the special chest, and the ordinary treasure rows keep their
+whole row of chests.
+
+---
+
 ## 0.8.1 — 2026-11-23
 
 ### Config page: collapsible sections

@@ -210,6 +210,42 @@ internal static class TreasureRowsSpoilsPatch
     }
 }
 
+/// <summary>
+/// The treasure map card remembers its special chest by taking the first point it finds with
+/// <c>PointType == Treasure</c>. Our bonus treasure rows come first in that enumeration, so the
+/// marker ("X marks the spot") would stick to a bonus row instead of the real chest. Point the card
+/// back at the spoils map's own chest row.
+/// </summary>
+[HarmonyPatch(typeof(MegaCrit.Sts2.Core.Models.Cards.SpoilsMap), nameof(MegaCrit.Sts2.Core.Models.Cards.SpoilsMap.ModifyGeneratedMapLate))]
+internal static class SpoilsMapMarkerPatch
+{
+    static void Postfix(MegaCrit.Sts2.Core.Models.Cards.SpoilsMap __instance, ActMap map)
+    {
+        try
+        {
+            if (map is not SpoilsActMap) return;
+            int row = map.GetRowCount() - 7;
+            MapPoint? chest = null;
+            foreach (MapPoint point in map.GetAllMapPoints())
+            {
+                if (point.coord.row != row) continue;
+                if (point.PointType != MapPointType.Treasure) continue;
+                chest = point;
+                break;
+            }
+            if (chest == null) return;
+            MethodInfo? setter = AccessTools.PropertySetter(typeof(MegaCrit.Sts2.Core.Models.Cards.SpoilsMap), "SpoilsCoord");
+            if (setter == null) return;
+            setter.Invoke(__instance, new object?[] { (MapCoord?)chest.coord });
+            MapLayout.Diag($"spoils: marker row={row} col={chest.coord.col}");
+        }
+        catch (Exception ex)
+        {
+            MapLayout.Diag("spoils: marker failed " + ex.GetType().Name + ": " + ex.Message);
+        }
+    }
+}
+
 // The golden compass relic swaps the act for a straight seven-column line with a fixed sixteen
 // room pattern, so it ignores the extra floors entirely. Keep the line, but stretch it to the
 // configured room count, keeping the vanilla spacing of the special rooms.

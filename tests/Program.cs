@@ -398,6 +398,13 @@ static class MapCompatHarness
             if (goldenPatches == null || !goldenPatches.Transpilers.Any(p => p.owner == "bobojo.ActFloorCustomizer"))
                 throw new Exception("the golden path transpiler is not installed");
 
+            var markerMethod = HarmonyLib.AccessTools.Method(
+                typeof(MegaCrit.Sts2.Core.Models.Cards.SpoilsMap),
+                nameof(MegaCrit.Sts2.Core.Models.Cards.SpoilsMap.ModifyGeneratedMapLate));
+            var markerPatches = markerMethod == null ? null : HarmonyLib.Harmony.GetPatchInfo(markerMethod);
+            if (markerPatches == null || !markerPatches.Postfixes.Any(p => p.owner == "bobojo.ActFloorCustomizer"))
+                throw new Exception("the spoils marker postfix is not installed");
+
             var template = new List<MapPointType>
             {
                 MapPointType.Monster, MapPointType.Unknown, MapPointType.Monster, MapPointType.RestSite,
