@@ -26,6 +26,7 @@ static void RunTests()
     LayoutHarness.Check();
     LayoutHarness.CheckTranspiler();
     ConfigHarness.Check();
+    NameHarness.Check();
     SyncHarness.Check();
     var managerState = typeof(MegaCrit.Sts2.Core.Modding.ModManager).GetProperty("State")!;
     managerState.SetValue(null, Enum.Parse(managerState.PropertyType, "Initialized"));
@@ -225,7 +226,7 @@ static class ConfigHarness
 {
     public static void Check()
     {
-        foreach (string key in new[] { "Name", "NextRun", "Act1", "Act2", "Act3", "ExtraHint", "Coop", "PerfHint", "CurrentRun" })
+        foreach (string key in new[] { "Name", "Desc", "NextRun", "Act1", "Act2", "Act3", "ExtraHint", "Coop", "PerfHint", "CurrentRun" })
         {
             string english = InGameConfig.Translate(key, "eng");
             string chinese = InGameConfig.Translate(key, "zhs");
@@ -303,4 +304,28 @@ static class SyncHarness
     }
 
     static void Require(bool ok, string message) { if (!ok) throw new Exception(message); }
+}
+
+static class NameHarness
+{
+    public static void Check()
+    {
+        // The manifest name is one fixed string; the mod list must follow the game language.
+        foreach (string chinese in new[] { "zhs", "zht", "zh_CN" })
+        {
+            if (ModNameLocalization.Replace(ModNameLocalization.EnglishName, chinese) != "每幕自定义加层")
+                throw new Exception("English name was not translated for " + chinese);
+        }
+        if (ModNameLocalization.Replace(ModNameLocalization.EnglishName, "eng") != ModNameLocalization.EnglishName)
+            throw new Exception("English name changed for English");
+        if (ModNameLocalization.Replace(ModNameLocalization.LegacyName, "zhs") != "每幕自定义加层")
+            throw new Exception("legacy bilingual name was not translated");
+        if (ModNameLocalization.Replace("Some other mod", "zhs") != "Some other mod")
+            throw new Exception("unrelated text must never be rewritten");
+        if (ModNameLocalization.Replace(null, "zhs") != "")
+            throw new Exception("null text must stay empty");
+        if (InGameConfig.IsChinese("eng") || !InGameConfig.IsChinese("zhs"))
+            throw new Exception("language detection");
+        Console.WriteLine("PASS: mod name follows the game language and leaves other text alone.");
+    }
 }

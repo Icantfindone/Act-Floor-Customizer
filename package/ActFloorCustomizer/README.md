@@ -1,4 +1,4 @@
-# ActFloorCustomizer v0.7.0
+# ActFloorCustomizer v0.7.1
 
 See 联机安装与使用说明.md or INSTALL_AND_COOP_EN.md for installation and co-op.
 
@@ -7,6 +7,12 @@ See 联机安装与使用说明.md or INSTALL_AND_COOP_EN.md for installation an
 Adds extra floors to Acts 1, 2 and 3, configured in-game through BaseLib's own ModConfig UI. Uses `BaseLib.Config.SimpleModConfig` and `ModConfigRegistry` with three static integer properties and native `ConfigSlider` attributes. Scoped Harmony patches provide English/Chinese labels for this mod only. No BonModConfig assembly reference or dependency remains; the legacy JSON is read only for a one-time value migration.
 
 Target: game v0.113.1, BaseLib v3.4.8.
+
+## Language (v0.7.1)
+
+A mod manifest holds one literal name and description, so the game cannot localise them by itself. The manifest now carries plain English, and a small patch rewrites the labels of this mod's own entry in the mod list to 每幕自定义加层 / the Chinese description when the game runs in `zhs`, `zht` or any other `zh` language. Only text equal to our own manifest strings is touched; nothing else on the screen is modified, and the patch is optional (`ModNameLocalization.Apply` is called in its own try/catch, so a changed mod-list screen in a future game build disables it instead of breaking the mod). Every other string — config page title, slider labels and hints — was already bilingual and still follows the game language.
+
+The Workshop page is split the same way: `workshop/workshop.json` holds the English title and description as the base language, and `workshop/localization-zhs.md` holds the 简体中文 title and description. Steam has no API for per-language item text, so the Chinese variant is pasted once in the item editor (语言 → 简体中文); the page then shows Chinese to Chinese users and English to everyone else.
 
 ## Co-op: the host decides (v0.7.0)
 
@@ -22,6 +28,7 @@ A longer map used to be drawn on the same fixed-height canvas, so the per-row di
 - Real-game log from 2026-11-22 confirms BaseLib registered the mod, built the config page and saved `%APPDATA%\SlayTheSpire2\mod_configs\ActFloorCustomizer.cfg` on quit. See `evidence/verification-2026-11-22-ingame.md`.
 - The stretched map and the parchment were confirmed on screen by the user; scrolling to the very top of a long map was not separately checked.
 - **The v0.7.0 co-op sync has not been run in a real lobby yet.** It has to be confirmed by a host and a client whose sliders differ: both peers should end up with the host's floor counts in the same act. Diagnostics for that check are written to `%APPDATA%\SlayTheSpire2\ActFloorCustomizer-diag.log` (`lobby: sent host floors`, `lobby: host floors ... from`, `bindNewRun`).
+- The v0.7.1 mod-list name patch is applied without errors in the offline harness and its text rules are unit-tested, but **it has not been seen on the in-game mod list yet**; if the label stays English, the patch found no matching label and needs the actual screen inspected.
 - The 112 figure counts offline cases, not in-game or online playthroughs.
 
 ## Layout
@@ -29,6 +36,7 @@ A longer map used to be drawn on the same fixed-height canvas, so the per-row di
 - `src/ModEntry.cs` — settings, Harmony setup, patches on `ActModel` room counts.
 - `src/InGameConfig.cs` — BaseLib config, labels, per-run setting snapshots, the co-op rule.
 - `src/HostSync.cs` — host floor broadcast, lobby hooks, the net message.
+- `src/ModNameLocalization.cs` — makes the mod-list name follow the game language.
 - `src/MapLayout.cs` — keeps the vanilla map row spacing when extra floors are added.
 - `tests/Program.cs` — the offline suite.
 - `package/` — installable DLL, manifest, config and docs.

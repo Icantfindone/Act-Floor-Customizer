@@ -12,12 +12,17 @@ public static class InGameConfig
 {
     public const string Id = "ActFloorCustomizer";
     public static bool Registered { get; private set; }
+    public static bool IsChinese(string? language) =>
+        language is "zhs" or "zht" || (language?.StartsWith("zh", StringComparison.OrdinalIgnoreCase) ?? false);
     public static string Translate(string key, string? language)
     {
-        bool chinese = language is "zhs" or "zht" || (language?.StartsWith("zh", StringComparison.OrdinalIgnoreCase) ?? false);
+        bool chinese = IsChinese(language);
         return key switch
         {
             "Name" => chinese ? "每幕自定义加层" : "Act Floor Customizer",
+            "Desc" => chinese
+                ? "每幕增加 0～30 层；地图按原版间距纵向拉伸；联机以房主设置为准。"
+                : "Add 0-30 extra floors per act. The map stretches to keep vanilla spacing; in co-op the host's values apply.",
             "NextRun" => chinese ? "自动保存，下一局生效，无需重启" : "Auto-saved. Applies to your next run. No restart needed.",
             "Act1" => chinese ? "第一幕额外层数" : "Act 1: extra floors",
             "Act2" => chinese ? "第二幕额外层数" : "Act 2: extra floors",

@@ -1,4 +1,4 @@
-# Act Floor Customizer v0.7.0 — installation and co-op
+# Act Floor Customizer v0.7.1 — installation and co-op
 
 Targets **Slay the Spire 2 v0.113.1**. Uses **BaseLib's built-in ModConfig**, compiled against the installed BaseLib v3.4.8 API.
 
@@ -9,7 +9,7 @@ Targets **Slay the Spire 2 v0.113.1**. Uses **BaseLib's built-in ModConfig**, co
 Or install manually:
 
 1. Close the game. Subscribe to and enable [BaseLib by Alchyr](https://steamcommunity.com/sharedfiles/filedetails/?id=3737335127), including its supplied compatibility helper components.
-2. Extract `ActFloorCustomizer-v0.7.0-sts2-v0.113.1.zip`.
+2. Extract `ActFloorCustomizer-v0.7.1-sts2-v0.113.1.zip`.
 3. In Steam, right-click the game → Manage → Browse local files. Copy the extracted `ActFloorCustomizer` folder into the game's `mods` folder. Create `mods` if necessary.
 4. Launch the game, enable the mod, and restart if prompted. When updating, replace existing files rather than keeping multiple versions.
 
@@ -29,10 +29,15 @@ Chinese game languages show Chinese labels; English and other languages show Eng
 
 On first upgrade, the mod migrates its old BonModConfig values if present; otherwise it uses `settings.cfg`. An existing BaseLib config takes priority. On Windows, the new config is normally `%APPDATA%/SlayTheSpire2/mod_configs/ActFloorCustomizer.cfg`.
 
+## Language (v0.7.1)
+
+- Every in-game string (config page title, slider labels, hints) follows the game language.
+- The name in the mod list follows it too: 每幕自定义加层 in Chinese, `Act Floor Customizer` elsewhere. A manifest can hold only one literal name, so a small patch rewrites our own entry's labels when the screen is built; it matches only our own manifest text and leaves other mods alone.
+- The Workshop page carries an English base version. The Chinese title and description have to be pasted once in the item editor (edit title and description -> language: Simplified Chinese); the text lives in `workshop/localization-zhs.md`. Steam has no API for per-language item text.
 ## Co-op checklist
 
 - **From v0.7.0 the host decides.** When the host presses start, its three values are sent to everyone in the lobby; other players use those values for that run no matter what their own sliders say. Their own numbers still apply in their singleplayer runs and when they host, and nothing is written into their config file.
-- Everyone installs v0.7.0 and compatible BaseLib, not just the host — game and mod versions must match anyway.
+- Everyone installs v0.7.1 and compatible BaseLib, not just the host — game and mod versions must match anyway.
 - Only the host needs to check the numbers before starting. Other players do not need to change anything.
 - Loading a saved co-op run restores the floor counts from the saved encounter pools, matching what the host used at the time.
 - **Still no mismatch protection and no version warning**: joining a lobby does not prove the setup is correct. The host must have this mod installed and enabled.
