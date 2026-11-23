@@ -88,7 +88,8 @@ To disable, finish your current modded run, disable Act Floor Customizer, and re
 
 ## Diagnostic log
 
-The mod writes `%APPDATA%\SlayTheSpire2\ActFloorCustomizer-diag.log` (the game does not keep standard output). Each map records generation time, map-screen layout time, path node count and the background scale/position; in co-op it also records the host values being sent, received and bound. Attach that file when reporting a stutter or a visual glitch.
+Diagnostics are off by default and write nothing. To turn them on, create `%APPDATA%\SlayTheSpire2\ActFloorCustomizer-test.txt` (any content; `# no switches` is enough) and restart the game: the mod then writes `%APPDATA%\SlayTheSpire2\ActFloorCustomizer-diag.log` with generation times, map-screen layout time, path node count, the background scale/position and — in co-op — the host values being sent, received and bound. Delete the file to stop logging. Other lines you can put in it: `nobg` (skip the parchment fix) and `nostretch` (vanilla map layout), both for isolating a visual problem.
+
 ## Compatibility with route-analysis mods
 
 Tools such as Map Enhance enumerate **every** route from the start to the boss to annotate win rates, and the number of routes grows roughly exponentially with map height. On one measured map (act 1, 15 + 30 = 46 rows, 183 nodes, 234 edges) there are **50,055,744** distinct routes; the tool collects all of them into a list and sorts it, which stalls the game for a very long time at high floor counts. The game logs no error, and this mod lays the map out in about 49 ms, so the stall is not here.
@@ -98,3 +99,5 @@ Rough scale for the same map structure: ~25 rows ≈ 60k routes, ~30 rows ≈ 45
 - To keep the win-rate / pick-rate annotations: keep **each act at 15 floors or below**.
 - To use higher values: turn off **route analysis** in that mod's settings (Map Config tab, or `RouteAnalysisEnabled` in its config file); its other features keep working.
 - This mod's config page now shows a hint line so the limit is visible where the sliders are.
+
+Map Enhance also costs frames even with route analysis off: its **minimap overview** rebuilds a large map preview image, and on a 46-row act it pulled the map screen down to roughly **6 FPS** with memory swinging between 0.5 GB and 3.2 GB every couple of seconds. Turning the minimap overview off (MAP MOD's Map Config tab, or `ShowMiniMapOverview` in its config file) restored the frame rate; disabling the mod entirely does the same. This mod's own drawing cost grows linearly with the row count, so whenever another map mod is installed and the map screen feels slow, lower the floor setting first.

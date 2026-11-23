@@ -21,3 +21,4 @@ ActFloorCustomizer-diag.log
 *.user
 *.suo
 *.pdb
+.git-commit-msg.tmp
