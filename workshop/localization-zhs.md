@@ -1,16 +1,28 @@
 # Steam 创意工坊 · 简体中文标题与描述
 
-Steam 没有给模组条目提供「按语言分开的标题/描述」的接口，上传器（ModUploader）只能写基础语言。
-所以 `workshop.json` 里放英文（基础语言），**简体中文这一份要在网页上粘贴一次**。
+Steam 上传器（ModUploader）的 `workshop.json` 只有一个标题和一个描述，写的是**基础语言（英文）**。
+按语言的标题/描述存的是同一个条目的「语言版本」，只能通过 `ISteamUGC::SetItemUpdateLanguage` 写入。
 
-## 操作步骤
+**当前状态：中文版已发布**（2026-11-23），中文用户在创意工坊看到中文，其他用户看到英文基础版。
 
-1. 打开 https://steamcommunity.com/sharedfiles/filedetails/?id=3843992717 → 右侧「编辑标题与描述」。
-2. 语言下拉框选 **简体中文**（Simplified Chinese）。
-3. 标题填下面「标题」那一行；描述填「描述」里 BBCode 全文（不要加代码块反引号）。
-4. 点「保存」。
+## 怎么更新的
 
-粘贴后，中文用户在创意工坊看到中文，其他用户看到英文基础版。
+工具在本仓库 `workshop/localizer/`（需要引用游戏自带的 `Steamworks.NET.dll`，路径写在 csproj 的 `Sts2Dir` 里）：
+
+```
+cd workshop\localizer
+dotnet build -c Release
+cd bin\Release\net9.0
+.\WorkshopLocalizer.exe "..\..\..\..\localization-zhs.md" "0.7.1: 中文标题与描述"
+```
+
+要求：Steam 客户端已登录、以 `danger-full-access` 运行。下面两个代码块会被工具自动读取
+（第一个是标题，第二个是描述），所以改文案只要改这个文件再跑一次。
+必须使用游戏目录里的 `steam_api64.dll`（300392 字节）；上传器自带的那份（317080 字节）版本较旧，
+会在 `CSteamAPIContext.Init()` 抛 `EntryPointNotFoundException: SteamAPI_ISteamClient_GetISteamGameSearch`。
+csproj 已自动拷贝正确的那份，不需要手动复制。
+
+也可以不走工具，直接在网页上手动粘贴同样的内容：条目的「编辑标题与描述」→ 语言选 **简体中文** → 粘贴 → 保存。
 
 ---
 

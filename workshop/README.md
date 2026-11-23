@@ -8,6 +8,10 @@ Adds extra floors to Acts 1, 2 and 3, configured in-game through BaseLib's own M
 
 Target: game v0.113.1, BaseLib v3.4.8.
 
+## Workshop page language (v0.7.1)
+
+`workshop/workshop.json` carries the English title and description as the item's base language. The 简体中文 title and description in `workshop/localization-zhs.md` are published as the item's `schinese` variant through `ISteamUGC::SetItemUpdateLanguage` by the tool in `workshop/localizer/` — the official uploader has no language field. Chinese users see the Chinese text, everyone else the English base; both can also be pasted by hand in the item editor (语言 → 简体中文).
+
 ## Co-op: the host decides (v0.7.0)
 
 In co-op every peer builds its own `RunState` from the shared seed and then generates its own encounter pools and map, so two players with different floor counts used to end up with different rooms and different maps. The host now broadcasts its three values through a mod-defined `INetMessage` while the lobby is still open, just before the begin-run message; the reliable channel delivers it first, and the receiving peers bind those values instead of their own sliders. Other players' sliders therefore do nothing in a run they did not host, while singleplayer and hosting still use the local settings. The values are only broadcast, never written to another player's config file.
