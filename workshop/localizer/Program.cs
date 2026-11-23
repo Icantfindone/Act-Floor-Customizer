@@ -28,14 +28,31 @@ internal static class Program
             .Select(m => m.Groups[1].Value.Trim())
             .Where(b => b.Length > 0)
             .ToList();
-        if (blocks.Count < 2)
+        // The file also documents the update flow in a fenced block, so pick the blocks after the
+        // "## 标题" and "## 描述" headings instead of trusting their order.
+        int titleHeading = markdown.IndexOf("## 标题", StringComparison.Ordinal);
+        int descHeading = markdown.IndexOf("## 描述", StringComparison.Ordinal);
+        if (titleHeading < 0 || descHeading < 0 || descHeading < titleHeading)
+        {
+            Console.WriteLine("could not find the '## 标题' and '## 描述' headings in " + args[0]);
+            return 2;
+        }
+        var titleBlocks = Regex.Matches(markdown.Substring(titleHeading, descHeading - titleHeading), "```[^\n]*\n(.*?)```", RegexOptions.Singleline)
+            .Select(m => m.Groups[1].Value.Trim())
+            .Where(b => b.Length > 0)
+            .ToList();
+        var descBlocks = Regex.Matches(markdown.Substring(descHeading), "```[^\n]*\n(.*?)```", RegexOptions.Singleline)
+            .Select(m => m.Groups[1].Value.Trim())
+            .Where(b => b.Length > 0)
+            .ToList();
+        if (titleBlocks.Count == 0 || descBlocks.Count == 0)
         {
             Console.WriteLine("could not find the title and description blocks in " + args[0]);
             return 2;
         }
 
-        string title = blocks[0];
-        string description = blocks[1];
+        string title = titleBlocks[0];
+        string description = descBlocks[descBlocks.Count - 1];
         Console.WriteLine($"[localizer] title: {title}");
         Console.WriteLine($"[localizer] description: {description.Length} chars");
 

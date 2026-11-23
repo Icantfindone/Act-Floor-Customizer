@@ -7,8 +7,8 @@
     <AssemblyName>WorkshopLocalizer</AssemblyName>
     <RootNamespace>WorkshopLocalizer</RootNamespace>
     <InvariantGlobalization>true</InvariantGlobalization>
-    <!-- The game ships a matching pair of Steamworks.NET and steam_api64.dll. Using any
-         other steam_api64.dll fails with EntryPointNotFoundException at CSteamAPIContext.Init. -->
+  </PropertyGroup>
+  <PropertyGroup>
     <Sts2Dir>D:\Program Files (x86)\Steam\steamapps\common\Slay the Spire 2\data_sts2_windows_x86_64</Sts2Dir>
   </PropertyGroup>
   <ItemGroup>
@@ -18,7 +18,9 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <!-- The uploader's own steam_api64.dll (317080 bytes) is older than the game's and throws
+         EntryPointNotFoundException inside CSteamAPIContext.Init(); always use the game's copy. -->
     <None Include="$(Sts2Dir)\steam_api64.dll" Link="steam_api64.dll" CopyToOutputDirectory="PreserveNewest" />
-    <None Include="steam_appid.txt" Link="steam_appid.txt" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\steam_appid.txt" Link="steam_appid.txt" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

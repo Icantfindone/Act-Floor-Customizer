@@ -29,6 +29,16 @@ public static class MapLayout
     public const float VanillaSecondBossY = -2280f;
     public const float VanillaScrollTop = 1800f;
 
+    /// <summary>
+    /// The map background is three 1920x1080 pieces stacked in a 3240px tall box: a rolled top end,
+    /// a flat middle and a rolled bottom end. Only the middle is stretched, so the rolls keep their
+    /// vanilla size and do not look blown up on long maps.
+    /// </summary>
+    public const float VanillaPieceHeight = 1080f;
+
+    /// <summary>Width of one parchment piece; the middle is tiled at its native width.</summary>
+    public const float VanillaPieceWidth = 1920f;
+
     /// <summary>Vertical scale factor of the current map. 1 means vanilla length.</summary>
     public static float Stretch { get; private set; } = 1f;
 
@@ -44,6 +54,58 @@ public static class MapLayout
 
     public static void SetStretch(float value) => Stretch = Math.Max(1f, value);
 
+    /// <summary>Test switch: skip the parchment scaling entirely.</summary>
+    public static bool SkipBackground { get; private set; }
+
+    /// <summary>Test switch: lay the map out exactly like vanilla (no canvas growth at all).</summary>
+    public static bool NoStretch { get; private set; }
+
+    /// <summary>
+    /// Optional debug switch file. When it exists the diagnostic log and the probes are switched on,
+    /// which is how the freeze and parchment investigations were done; a normal install never has it.
+    /// </summary>
+    public static string DebugSwitchPath
+    {
+        get
+        {
+            string appData = System.Environment.GetFolderPath(System.Environment.SpecialFolder.ApplicationData);
+            return string.IsNullOrEmpty(appData)
+                ? string.Empty
+                : Path.Combine(appData, "SlayTheSpire2", "ActFloorCustomizer-test.txt");
+        }
+    }
+
+    /// <summary>
+    /// Reads optional debug switches from
+    /// <c>%APPDATA%\SlayTheSpire2\ActFloorCustomizer-test.txt</c> (one per line:
+    /// <c>nobg</c> disables the parchment stretch, <c>nostretch</c> disables every layout change).
+    /// Used only while diagnosing a freeze report; harmless when the file is absent.
+    /// </summary>
+    public static void ReadSwitches()
+    {
+        SkipBackground = false;
+        NoStretch = false;
+        try
+        {
+            string path = DebugSwitchPath;
+            if (path.Length > 0 && File.Exists(path))
+            {
+                foreach (string raw in File.ReadAllLines(path))
+                {
+                    string line = raw.Trim().ToLowerInvariant();
+                    if (line.Length == 0 || line.StartsWith('#')) continue;
+                    if (line == "nobg") SkipBackground = true;
+                    else if (line == "nostretch") NoStretch = true;
+                }
+            }
+        }
+        catch
+        {
+            // Switches must never break the game.
+        }
+        Diag($"switches nobg={SkipBackground} nostretch={NoStretch}");
+    }
+
     public static long Mark() => System.Diagnostics.Stopwatch.GetTimestamp();
 
     public static double Since(long mark)
@@ -56,6 +118,7 @@ public static class MapLayout
     /// </summary>
     public static float ComputeStretch(int rows, int extra)
     {
+        if (NoStretch) return 1f;
         if (extra <= 0) return 1f;
         int vanillaRows = rows - extra;
         if (vanillaRows < 2 || rows <= vanillaRows) return 1f;
@@ -222,9 +285,25 @@ public static class MapLayout
     private sealed class BgState
     {
         public float PositionDelta;
+
+        /// <summary>Vanilla CustomMinimumSize of the middle piece, captured before we touch it.</summary>
+        public Vector2 MidMin;
+
+        public bool MidMinCaptured;
+
+        /// <summary>The middle parchment texture, kept because the piece itself is emptied while stretched.</summary>
+        public Texture2D? MidTexture;
+
+        /// <summary>Holder of the stacked middle strips, parented to the middle piece.</summary>
+        public Control? MidHolder;
+
+        public readonly List<TextureRect> MidTiles = new();
+
     }
 
     private static readonly ConditionalWeakTable<NMapBg, BgState> BgStates = new();
+
+    private static bool _skipLogged;
 
     /// <summary>
     /// Set by <see cref="ModEntry.Initialize"/>. The offline test harness calls LoadAndPatch
@@ -269,13 +348,16 @@ public static class MapLayout
             "ActFloorCustomizer-diag.log");
     }
 
+    private static readonly object DiagLock = new();
+
     /// <summary>Best-effort diagnostic log; the game does not keep standard output.</summary>
     public static void Diag(string message)
     {
         if (!DiagnosticsEnabled) return;
         try
         {
-            File.AppendAllText(DiagPath, $"{DateTime.Now:yyyy-MM-dd HH:mm:ss} {message}{System.Environment.NewLine}");
+            lock (DiagLock)
+                File.AppendAllText(DiagPath, $"{DateTime.Now:yyyy-MM-dd HH:mm:ss} {message}{System.Environment.NewLine}");
         }
         catch
         {
@@ -283,10 +365,165 @@ public static class MapLayout
         }
     }
 
+    private static bool _dumped;
+
+    /// <summary>
+    /// Diagnostic only: measures the parchment textures once - their real size, where the opaque
+    /// paper sits inside them (alpha bounds) and what rect vanilla gives each piece - and writes the
+    /// images next to the log so they can be inspected offline.
+    /// </summary>
+    public static void DumpPieces(NMapBg bg)
+    {
+        if (_dumped) return;
+        try
+        {
+            string dir = Path.Combine(Path.GetDirectoryName(DiagPath) ?? ".", "ActFloorCustomizer-bg");
+            Directory.CreateDirectory(dir);
+            bool any = false;
+            foreach (string field in new[] { "_mapTop", "_mapMid", "_mapBot" })
+            {
+                if (AccessTools.Field(typeof(NMapBg), field)?.GetValue(bg) is not TextureRect piece) continue;
+                Texture2D? tex = piece.Texture;
+                if (tex == null) continue;
+                any = true;
+                int tw = tex.GetWidth();
+                int th = tex.GetHeight();
+                string bounds = "no-image";
+                Image img = tex.GetImage();
+                if (img != null)
+                {
+                    int w = img.GetWidth();
+                    int h = img.GetHeight();
+                    bool Solid(int x, int y) => x >= 0 && y >= 0 && x < w && y < h && img.GetPixel(x, y).A > 0.03f;
+                    int row = h / 2;
+                    int left = -1, right = -1, top = -1, bottom = -1;
+                    for (int x = 0; x < w; x++) if (Solid(x, row)) { left = x; break; }
+                    for (int x = w - 1; x >= 0; x--) if (Solid(x, row)) { right = x; break; }
+                    int col = w / 2;
+                    for (int y = 0; y < h; y++) if (Solid(col, y)) { top = y; break; }
+                    for (int y = h - 1; y >= 0; y--) if (Solid(col, y)) { bottom = y; break; }
+                    int x0 = -1, x1 = -1, y0 = -1, y1 = -1;
+                    for (int x = 0; x < w; x++) { for (int y = 0; y < h; y += 4) if (Solid(x, y)) { x0 = x; break; } if (x0 >= 0) break; }
+                    for (int x = w - 1; x >= 0; x--) { for (int y = 0; y < h; y += 4) if (Solid(x, y)) { x1 = x; break; } if (x1 >= 0) break; }
+                    for (int y = 0; y < h; y++) { for (int x = 0; x < w; x += 4) if (Solid(x, y)) { y0 = y; break; } if (y0 >= 0) break; }
+                    for (int y = h - 1; y >= 0; y--) { for (int x = 0; x < w; x += 4) if (Solid(x, y)) { y1 = y; break; } if (y1 >= 0) break; }
+                    var cov = new System.Text.StringBuilder();
+                    int step = Math.Max(1, h / 12);
+                    for (int y = 0; y < h; y += step)
+                    {
+                        int n = 0;
+                        for (int x = 0; x < w; x += 8) if (Solid(x, y)) n++;
+                        cov.Append($"{y}:{n * 8} ");
+                    }
+                    bounds = $"fmt={img.GetFormat()} paperRow={left}..{right} paperCol={top}..{bottom} " +
+                             $"pageBox={x0},{y0}..{x1},{y1} rows={cov}";
+                    string path = Path.Combine(dir, field.TrimStart('_') + ".png");
+                    img.SavePng(path);
+                }
+                Diag($"dump {field}: tex={tw}x{th} rect={piece.Size.X:0}x{piece.Size.Y:0} " +
+                     $"min={piece.CustomMinimumSize.X:0}x{piece.CustomMinimumSize.Y:0} " +
+                     $"expand={piece.ExpandMode} stretch={piece.StretchMode} pos={piece.Position.X:0},{piece.Position.Y:0} {bounds}");
+            }
+            if (any) _dumped = true;
+            Diag($"dump bg: size={bg.Size.X:0}x{bg.Size.Y:0} pos={bg.Position.X:0},{bg.Position.Y:0} children={bg.GetChildCount()}");
+        }
+        catch (Exception ex)
+        {
+            Diag("dump failed: " + ex.Message);
+        }
+    }
+    /// <summary>
+    /// Restores the vanilla look of the middle piece: the 2035px texture fitted into the 1920x1080
+    /// box, which squeezes it to 1526px wide - the same width the two rolled ends are drawn at.
+    /// </summary>
+    private static void RestoreMiddle(TextureRect middle, BgState state)
+    {
+        if (state.MidHolder != null)
+        {
+            state.MidHolder.QueueFree();
+            state.MidHolder = null;
+            state.MidTiles.Clear();
+        }
+        if (state.MidTexture != null) middle.Texture = state.MidTexture;
+        float width = state.MidMin.X > 0f ? state.MidMin.X : VanillaPieceWidth;
+        middle.CustomMinimumSize = new Vector2(width, VanillaPieceHeight);
+    }
+
+    /// <summary>
+    /// Fills the grown middle box with vertically stacked copies of the middle texture. Every copy is
+    /// drawn at the vanilla width (so the paper edges line up with the rolled ends) and only slightly
+    /// taller than vanilla, so the torn left and right edges repeat gently instead of being smeared
+    /// over a five-times-taller sheet. Returns how much the sheet grew upwards.
+    /// </summary>
+    private static float StackMiddle(TextureRect middle, Texture2D tex, float boxWidth, float totalHeight, BgState state)
+    {
+        float texW = Mathf.Max(1f, tex.GetWidth());
+        float texH = Mathf.Max(1f, tex.GetHeight());
+        float fit = Mathf.Min(boxWidth / texW, VanillaPieceHeight / texH);
+        float drawW = texW * fit;
+        float drawX = (boxWidth - drawW) * 0.5f;
+        int count = Mathf.Max(1, Mathf.CeilToInt(totalHeight / VanillaPieceHeight));
+        float tileH = totalHeight / count;
+
+        middle.Texture = null;
+        middle.ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize;
+        middle.StretchMode = TextureRect.StretchModeEnum.Scale;
+        float width = state.MidMin.X > 0f ? state.MidMin.X : VanillaPieceWidth;
+        middle.CustomMinimumSize = new Vector2(width, totalHeight);
+
+        if (state.MidHolder == null)
+        {
+            state.MidHolder = new Control
+            {
+                Name = "ActFloorPaper",
+                MouseFilter = Control.MouseFilterEnum.Ignore,
+            };
+            middle.AddChild(state.MidHolder);
+            state.MidTiles.Clear();
+        }
+        while (state.MidTiles.Count < count)
+        {
+            var tile = new TextureRect
+            {
+                MouseFilter = Control.MouseFilterEnum.Ignore,
+                ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
+                StretchMode = TextureRect.StretchModeEnum.Scale,
+            };
+            state.MidHolder.AddChild(tile);
+            state.MidTiles.Add(tile);
+        }
+        state.MidHolder.Position = Vector2.Zero;
+        state.MidHolder.Size = new Vector2(boxWidth, totalHeight);
+        for (int i = 0; i < state.MidTiles.Count; i++)
+        {
+            TextureRect tile = state.MidTiles[i];
+            if (i >= count)
+            {
+                tile.Visible = false;
+                continue;
+            }
+            tile.Visible = true;
+            tile.Texture = tex;
+            tile.Position = new Vector2(drawX, i * tileH);
+            tile.Size = new Vector2(drawW, tileH);
+        }
+        Diag($"bg paper tiles={count} tileH={tileH:0.#} drawW={drawW:0.#} x={drawX:0.#} box={boxWidth:0.#}x{totalHeight:0.#}");
+        return totalHeight - VanillaPieceHeight;
+    }
+
     public static void ApplyBackground(NMapBg bg, bool positionWasReset)
     {
         try
         {
+            if (SkipBackground)
+            {
+                if (!_skipLogged)
+                {
+                    _skipLogged = true;
+                    Diag("bg: skipped by test switch");
+                }
+                return;
+            }
             if (!BgStates.TryGetValue(bg, out BgState? state))
             {
                 state = new BgState();
@@ -294,21 +531,48 @@ public static class MapLayout
             }
             if (positionWasReset) state.PositionDelta = 0f;
 
+            if (DiagnosticsEnabled) 
+            {
+                NMapBg probe = bg;
+                Callable.From(() => DumpPieces(probe)).CallDeferred();
+            }
             float stretch = Stretch;
-            float baseHeight = bg.Size.Y;
-            // Grow the sheet by exactly the amount the map canvas grew, so the sheet keeps the
-            // vanilla relationship to the rooms (its top stays a fixed distance below the boss,
-            // its bottom stays below the first room), instead of scaling its own height.
             float growth = VanillaHeight * (stretch - 1f);
-            float scale = baseHeight <= 1f ? 1f : (baseHeight + growth) / baseHeight;
-
             float vanillaY = bg.Position.Y + state.PositionDelta;
-            // Control.Scale pivots around PivotOffset. With a non-zero pivot the sheet grows in
-            // both directions, which lifts its bottom edge and pushes its top past the screen.
+
+            // Stretch the flat middle piece only, and only vertically: the two rolled ends keep their
+            // vanilla 1080px height and are simply pushed apart, so a long map looks like a longer
+            // sheet instead of one with oversized rolls, and the paper edges keep their vanilla
+            // distance to the boss room and to the starting room.
+            // The width must stay exactly what vanilla gives this node. The middle texture is 2035px
+            // wide inside a 1920px box, so vanilla squeezes it horizontally; forcing the box to the
+            // texture width made the sheet 115px wider than the rolled ends. Keep the vanilla
+            // CustomMinimumSize.X and only override the height.
+            float added = 0f;
+            if (AccessTools.Field(typeof(NMapBg), "_mapMid")?.GetValue(bg) is TextureRect middle)
+            {
+                if (!state.MidMinCaptured)
+                {
+                    state.MidMin = middle.CustomMinimumSize;
+                    state.MidMinCaptured = true;
+                }
+                if (middle.Texture != null) state.MidTexture = middle.Texture;
+                float pieceWidth = state.MidMin.X > 0f ? state.MidMin.X : VanillaPieceWidth;
+                float boxWidth = bg.Size.X > 0f ? bg.Size.X : pieceWidth;
+                if (stretch <= 1.001f || state.MidTexture == null)
+                {
+                    RestoreMiddle(middle, state);
+                    added = 0f;
+                }
+                else
+                {
+                    added = StackMiddle(middle, state.MidTexture, boxWidth, VanillaPieceHeight + growth, state);
+                }
+            }
             bg.PivotOffset = Vector2.Zero;
-            bg.Scale = new Vector2(1f, scale);
-            bg.Position = new Vector2(bg.Position.X, vanillaY - growth);
-            state.PositionDelta = growth;
+            bg.Scale = Vector2.One;
+            bg.Position = new Vector2(bg.Position.X, vanillaY - added);
+            state.PositionDelta = added;
 
             try
             {
@@ -321,10 +585,12 @@ public static class MapLayout
             }
 
             NMapBg reference = bg;
-            Callable.From(() => Diag(
-                $"bg stretch={stretch:0.###} baseH={baseHeight:0.#} growth={growth:0.#} " +
-                $"scaleY={reference.Scale.Y:0.###} posY={reference.Position.Y:0.#} " +
-                $"bottom={reference.Position.Y + baseHeight * reference.Scale.Y:0.#}")).CallDeferred();
+            Callable.From(() =>
+            {
+                Diag($"bg stretch={stretch:0.###} growth={growth:0.#} " +
+                     $"bgW={reference.Size.X:0.#} bgH={reference.Size.Y:0.#} posY={reference.Position.Y:0.#} " +
+                     $"bottom={reference.Position.Y + reference.Size.Y:0.#}");
+            }).CallDeferred();
         }
         catch (Exception ex)
         {
@@ -378,6 +644,22 @@ internal static class MapBgViewportPatch
     static void Postfix(NMapBg __instance) => MapLayout.ApplyBackground(__instance, true);
 }
 
+[HarmonyPatch(typeof(NMapBg), "OnVisibilityChanged")]
+internal static class MapBgVisibilityPatch
+{
+    [HarmonyPostfix]
+    static void Postfix(NMapBg __instance)
+    {
+        // Vanilla re-assigns the three textures here, which would undo the stack; re-apply next frame.
+        NMapBg probe = __instance;
+        Callable.From(() =>
+        {
+            if (!MapLayout.DiagnosticsEnabled) return;
+            MapLayout.DumpPieces(probe);
+        }).CallDeferred();
+        Callable.From(() => MapLayout.ApplyBackground(probe, false)).CallDeferred();
+    }
+}
 [HarmonyPatch(typeof(NMapScreen), "UpdateScrollPosition")]
 internal static class MapScreenScrollPatch
 {

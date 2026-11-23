@@ -1,5 +1,7 @@
 using System.Reflection;
+using System.Reflection.Emit;
 using System.Runtime.CompilerServices;
+using HarmonyLib;
 using System.Runtime.Loader;
 using ActFloorCustomizer;
 using MegaCrit.Sts2.Core.Map;
@@ -37,6 +39,7 @@ static void RunTests()
         transpiler: new HarmonyLib.HarmonyMethod(typeof(HeadlessLogging), nameof(HeadlessLogging.Transpiler)));
     MegaCrit.Sts2.Core.Multiplayer.Serialization.ModelIdSerializationCache.Init();
     ModelDb.InitIds();
+    MapCompatHarness.Check();
     Console.WriteLine("Patches loaded; creating act models.");
     ActModel[] acts = [ModelDb.Act<Overgrowth>(), ModelDb.Act<Underdocks>(), ModelDb.Act<Hive>(), ModelDb.Act<Glory>()];
     int checks = 0;
@@ -226,7 +229,7 @@ static class ConfigHarness
 {
     public static void Check()
     {
-        foreach (string key in new[] { "Name", "Desc", "NextRun", "Act1", "Act2", "Act3", "ExtraHint", "Coop", "PerfHint", "CurrentRun" })
+        foreach (string key in new[] { "Name", "Desc", "NextRun", "Act1", "Act2", "Act3", "ExtraHint", "Coop", "PerfHint", "CurrentRun", "Treasure", "TreasureHint" })
         {
             string english = InGameConfig.Translate(key, "eng");
             string chinese = InGameConfig.Translate(key, "zhs");
@@ -327,5 +330,154 @@ static class NameHarness
         if (InGameConfig.IsChinese("eng") || !InGameConfig.IsChinese("zhs"))
             throw new Exception("language detection");
         Console.WriteLine("PASS: mod name follows the game language and leaves other text alone.");
+    }
+}
+static class MapCompatHarness
+{
+    public static void Check()
+    {
+        var act = ModelDb.Act<Overgrowth>();
+        int saved = ModEntry.Settings.Act1ExtraFloors;
+        try
+        {
+            ModEntry.Settings.Act1ExtraFloors = 0;
+            var vanilla = new StandardActMap(new Rng(1), act, false, false, false);
+            if (LongMapRule.ShouldSkipPruning(vanilla))
+                throw new Exception("a vanilla length map must keep path pruning");
+
+            ModEntry.Settings.Act1ExtraFloors = 30;
+            var longMap = new StandardActMap(new Rng(1), act, false, false, false);
+            if (longMap.GetRowCount() <= LongMapRule.MaxRowsForPruning)
+                throw new Exception("the stretched map is not long enough for this test");
+            if (!LongMapRule.ShouldSkipPruning(longMap))
+                throw new Exception("a stretched map must skip path pruning");
+
+            var pruneMethod = HarmonyLib.AccessTools.Method(typeof(MapPathPruning), nameof(MapPathPruning.PruneAndRepair));
+            var prunePatches = HarmonyLib.Harmony.GetPatchInfo(pruneMethod);
+            if (prunePatches == null || !prunePatches.Prefixes.Any(p => p.owner == "bobojo.ActFloorCustomizer"))
+                throw new Exception("the pruning guard is not installed");
+
+            var spoilsCtor = HarmonyLib.AccessTools.Constructor(typeof(SpoilsActMap),
+                new[] { typeof(MegaCrit.Sts2.Core.Runs.IRunState), typeof(MapPointTypeCounts) });
+            var spoilsPatches = spoilsCtor == null ? null : HarmonyLib.Harmony.GetPatchInfo(spoilsCtor);
+            if (spoilsPatches == null || !spoilsPatches.Prefixes.Any(p => p.owner == "bobojo.ActFloorCustomizer"))
+                throw new Exception("the spoils map prefix is not installed");
+            if (!spoilsPatches.Transpilers.Any(p => p.owner == "bobojo.ActFloorCustomizer"))
+                throw new Exception("the spoils map transpiler is not installed");
+
+            var goldenCtor = HarmonyLib.AccessTools.Constructor(typeof(MegaCrit.Sts2.Core.Map.GoldenPathActMap),
+                new[] { typeof(MegaCrit.Sts2.Core.Runs.IRunState) });
+            var goldenPatches = goldenCtor == null ? null : HarmonyLib.Harmony.GetPatchInfo(goldenCtor);
+            if (goldenPatches == null || !goldenPatches.Transpilers.Any(p => p.owner == "bobojo.ActFloorCustomizer"))
+                throw new Exception("the golden path transpiler is not installed");
+
+            var template = new List<MapPointType>
+            {
+                MapPointType.Monster, MapPointType.Unknown, MapPointType.Monster, MapPointType.RestSite,
+                MapPointType.Monster, MapPointType.RestSite, MapPointType.Unknown, MapPointType.Treasure,
+                MapPointType.Unknown, MapPointType.Treasure, MapPointType.Unknown, MapPointType.Shop,
+                MapPointType.Elite, MapPointType.RestSite, MapPointType.Elite, MapPointType.RestSite
+            };
+            int goldenRooms = act.GetNumberOfRooms(false);
+            var golden = GoldenPathPatch.Stretch(template, act, false);
+            if (golden.Count != goldenRooms)
+                throw new Exception($"golden path has {golden.Count} rooms, expected {goldenRooms}");
+            if (golden[0] != MapPointType.Monster || golden[^1] != MapPointType.RestSite)
+                throw new Exception("golden path must start with a monster and end with a rest site");
+            if (golden.Count(t => t == MapPointType.Treasure) != 2) throw new Exception("golden path lost a treasure");
+            if (golden.Count(t => t == MapPointType.Shop) != 1) throw new Exception("golden path lost the shop");
+            if (golden.Count(t => t == MapPointType.Elite) != 2) throw new Exception("golden path lost an elite");
+            if (golden.Count(t => t == MapPointType.RestSite) < 4) throw new Exception("golden path lost a rest");
+            var goldenMultiplayer = GoldenPathPatch.Stretch(template, act, true);
+            int goldenRoomsMultiplayer = act.GetNumberOfRooms(true);
+            if (goldenMultiplayer.Count != goldenRoomsMultiplayer + 1)
+                throw new Exception("the multiplayer golden path must carry one throwaway room");
+            goldenMultiplayer.RemoveAt(2);
+            if (goldenMultiplayer.Count != goldenRoomsMultiplayer) throw new Exception("multiplayer golden path length");
+
+            ModEntry.Settings.Act1ExtraFloors = 0;
+            if (!ReferenceEquals(GoldenPathPatch.Stretch(template, act, false), template))
+                throw new Exception("a vanilla length act must keep the vanilla golden path");
+            ModEntry.Settings.Act1ExtraFloors = 30;
+
+            // Feed the golden path transpiler a stand-in for "this._defaultPointTypes.ToList()".
+            var toList = typeof(Enumerable).GetMethods()
+                .First(m => m.Name == nameof(Enumerable.ToList) && m.GetParameters().Length == 1)
+                .MakeGenericMethod(typeof(MapPointType));
+            var synthetic = new List<CodeInstruction>
+            {
+                new(OpCodes.Ldarg_0),
+                new(OpCodes.Ldfld, typeof(GoldenPathActMap).GetField("_defaultPointTypes", BindingFlags.Instance | BindingFlags.NonPublic)!),
+                new(OpCodes.Call, toList),
+                new(OpCodes.Stloc_0),
+                new(OpCodes.Ret),
+            };
+            var rewritten = GoldenPathPatch.Transpiler(synthetic).ToList();            int stretchCalls = rewritten.Count(i => i.opcode == OpCodes.Call && (i.operand as MethodInfo)?.Name == nameof(GoldenPathPatch.Types));
+            if (stretchCalls != 1) throw new Exception("the golden path transpiler did not insert its call");
+            if (!rewritten.Any(i => i.opcode == OpCodes.Ldarg_1))
+                throw new Exception("the golden path transpiler must pass the run state");
+
+            // The spoils constructor's own call to GetNumberOfRooms must be rewritten too.
+            var getRooms = HarmonyLib.AccessTools.Method(typeof(ActModel), nameof(ActModel.GetNumberOfRooms), new[] { typeof(bool) });
+            if (getRooms == null) throw new Exception("ActModel.GetNumberOfRooms(bool) is missing");
+            var spoilsIl = new List<CodeInstruction>
+            {
+                new(OpCodes.Ldarg_1),
+                new(OpCodes.Callvirt, getRooms),
+                new(OpCodes.Ret),
+            };
+            var spoilsRewritten = RoomCountPatch.ReplaceCalls(spoilsIl).ToList();
+            if (!spoilsRewritten.Any(i => (i.operand as MethodInfo)?.Name == nameof(RoomCountPatch.EffectiveRooms)))
+                throw new Exception("the spoils map transpiler does not rewrite GetNumberOfRooms");
+
+            // The guarded call must return at once; without the guard this enumerates every route.
+            var gridProperty = typeof(ActMap).GetProperty("Grid", BindingFlags.Instance | BindingFlags.NonPublic)!;
+            var grid = (MapPoint?[,])gridProperty.GetValue(longMap)!;
+            var counts = (MapPointTypeCounts)HarmonyLib.AccessTools.Field(typeof(StandardActMap), "_pointTypeCounts").GetValue(longMap)!;
+            var watch = System.Diagnostics.Stopwatch.StartNew();
+            MapPathPruning.PruneAndRepair(grid, new HashSet<MapPoint>(), longMap, counts, new Rng(1), (_, _) => true);
+            watch.Stop();
+            if (watch.ElapsedMilliseconds > 500)
+                throw new Exception("pruning a long map took " + watch.ElapsedMilliseconds + "ms");
+
+            int rooms = act.GetNumberOfRooms(true);
+            var baseline = act.GetMapPointTypes(new Rng(3));
+            var scaled = LongMapRule.Scaled(baseline, rooms, 30);
+            double ratio = (double)rooms / (rooms - 30);
+            int Scale(int n) => (int)Math.Round(n * ratio, MidpointRounding.AwayFromZero);
+            if (scaled.NumOfUnknowns != Scale(baseline.NumOfUnknowns)) throw new Exception("unknown scaling");
+            if (scaled.NumOfRests != Scale(baseline.NumOfRests)) throw new Exception("rest scaling");
+            if (scaled.NumOfShops != Scale(baseline.NumOfShops)) throw new Exception("shop scaling");
+            if (scaled.NumOfElites != Math.Min(14, Scale(baseline.NumOfElites))) throw new Exception("elite scaling");
+            if (!ReferenceEquals(LongMapRule.Scaled(baseline, rooms, 0), baseline)) throw new Exception("vanilla budget must be returned unchanged");
+            if (LongMapRule.Scaled(baseline, 10, 30) != baseline) throw new Exception("impossible budget must be returned unchanged");
+
+            // Bonus treasure rows: the vanilla row seven above the boss counts as the first of the
+            // series, then one more row every N rows going up.
+            var treasureRows = new HashSet<int>();
+            foreach (var point in longMap.GetAllMapPoints())
+                if (point.PointType == MapPointType.Treasure) treasureRows.Add(point.coord.row);
+            int vanillaTreasureRow = longMap.GetRowCount() - 7;
+            int step = TreasureRows.Every;
+            if (!treasureRows.Contains(vanillaTreasureRow))
+                throw new Exception("the vanilla treasure row must stay a treasure row");
+            for (int row = vanillaTreasureRow - step; row >= 3; row -= step)
+            {
+                if (!treasureRows.Contains(row))
+                    throw new Exception($"row {row} should be a bonus treasure row on a stretched map");
+            }
+            int savedEvery = ModEntry.Settings.TreasureEveryRows;
+            ModEntry.Settings.TreasureEveryRows = 0;
+            var noBonus = new StandardActMap(new Rng(1), act, false, false, false);
+            if (noBonus.GetAllMapPoints().Any(p => p.PointType == MapPointType.Treasure && p.coord.row != noBonus.GetRowCount() - 7))
+                throw new Exception("treasure rows must disappear when the option is 0");
+            ModEntry.Settings.TreasureEveryRows = savedEvery;
+
+            Console.WriteLine("PASS: long maps skip the exponential path pruning and keep the scaled point budget.");
+        }
+        finally
+        {
+            ModEntry.Settings.Act1ExtraFloors = saved;
+        }
     }
 }

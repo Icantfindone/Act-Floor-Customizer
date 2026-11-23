@@ -1,0 +1,9 @@
+v0.7.2: treasure-map act fix, golden compass, treasure rows, parchment rework
+
+- MapCompat: skip MapPathPruning above 20 rows (a 46-row map has ~5e7 routes and froze the game when the treasure map replaced act 2), and scale the point budget for the maps that can no longer be pruned.
+- SpoilsActMap: transpile the inlined ActModel.GetNumberOfRooms call so the treasure-map act uses the configured floor count instead of staying at 15 rows.
+- GoldenPathActMap: transpile the ctor to stretch the 16-room straight line to the configured room count, keeping the vanilla mix and the first/last rooms.
+- Treasure rows: new TreasureEveryRows setting (0-30, default 7) that turns one row into treasure rooms every N rows above the vanilla treasure row; fourth slider, settings.cfg and tests included.
+- Parchment: the rolled ends are no longer scaled at all; the flat middle is filled with strips of its texture at the vanilla drawn width so the paper keeps the same width as the rolls, and the sheet grows upward with its bottom edge pinned.
+- Diagnostics: the log file and the probes now only run when %APPDATA%\SlayTheSpire2\ActFloorCustomizer-test.txt exists.
+- Docs: README, both install guides, workshop metadata and the Chinese Workshop text updated; new CHANGELOG.md.

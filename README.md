@@ -1,4 +1,4 @@
-# ActFloorCustomizer v0.7.1
+# ActFloorCustomizer v0.7.2
 
 See 联机安装与使用说明.md or INSTALL_AND_COOP_EN.md for installation and co-op.
 
@@ -18,9 +18,17 @@ The Workshop page is split the same way: `workshop/workshop.json` holds the Engl
 
 In co-op every peer builds its own `RunState` from the shared seed and then generates its own encounter pools and map, so two players with different floor counts used to end up with different rooms and different maps. The host now broadcasts its three values through a mod-defined `INetMessage` while the lobby is still open, just before the begin-run message; the reliable channel delivers it first, and the receiving peers bind those values instead of their own sliders. Other players' sliders therefore do nothing in a run they did not host, while singleplayer and hosting still use the local settings. The values are only broadcast, never written to another player's config file.
 
+## Treasure rows (v0.7.2)
+
+Vanilla adds exactly one row of treasure rooms, seven rows above the boss, so a stretched map would keep the same single chest row no matter how many floors it gained. The mod now counts that vanilla row as the first of a series and turns one more row into treasure rooms every N rows going up (`TreasureEveryRows`, default 7, `0` disables it). It only applies to acts that actually have extra floors, so vanilla-length acts are untouched, and the rows are placed clear of the starting rooms and of the boss. The value is editable in-game (fourth slider on the config page) and in `settings.cfg` as `TreasureEveryRows=7`.
+
+## Special act maps (v0.7.2)
+
+Two relics/cards replace the standard act map, and both ignored the extra floors. The treasure map card swaps act 2 for an hourglass map whose constructor calls `ActModel.GetNumberOfRooms` — a call the JIT inlines, so the room-count patch never fired there and the act stayed at 15 rows. The call site is now rewritten by a transpiler, and the map gets the same scaled point budget as a standard act. That map also ran `MapPathPruning`, which enumerates every possible route and is exponential in the number of rows: harmless at 16 rows, ~50 million routes at 46 rows, which is what froze the game in a real co-op run. Maps longer than 20 rows now skip that pass (the generator already guarantees every point reaches the boss). The golden compass map was a fixed 16-room straight line; it is now stretched to the configured room count while keeping its vanilla mix and its first/last rooms.
+
 ## Map stretch (v0.6.0)
 
-A longer map used to be drawn on the same fixed-height canvas, so the per-row distance shrank and, past roughly 23 rows, went negative: rooms sat on top of each other. The map screen now keeps the vanilla row spacing and grows the canvas with the row count instead, moves the boss marker up by the same amount, and extends the top scroll limit so the added rows remain reachable. The parchment background is a three-part scroll whose bottom edge stays put; its height grows by exactly the amount the map grew and the parchment is stretched to fill. Column spacing and room size are unchanged. With every floor setting at 0 the replacements return the exact vanilla constants, so drawing is unchanged.
+A longer map used to be drawn on the same fixed-height canvas, so the per-row distance shrank and, past roughly 23 rows, went negative: rooms sat on top of each other. The map screen now keeps the vanilla row spacing and grows the canvas with the row count instead, moves the boss marker up by the same amount, and extends the top scroll limit so the added rows remain reachable. The parchment background is a three-part scroll: the two rolled ends are left completely untouched and the flat middle is filled by stacking strips of the middle texture at the vanilla drawn width (each strip only about 6% taller than vanilla), so the sheet grows upward with its bottom edge pinned in place and the paper stays exactly as wide as the rolled ends. Column spacing and room size are unchanged. With every floor setting at 0 the replacements return the exact vanilla constants, so drawing is unchanged.
 
 ## Verification status
 
@@ -30,6 +38,7 @@ A longer map used to be drawn on the same fixed-height canvas, so the per-row di
 - **The v0.7.0 co-op sync has not been run in a real lobby yet.** It has to be confirmed by a host and a client whose sliders differ: both peers should end up with the host's floor counts in the same act. Diagnostics for that check are written to `%APPDATA%\SlayTheSpire2\ActFloorCustomizer-diag.log` (`lobby: sent host floors`, `lobby: host floors ... from`, `bindNewRun`).
 - The v0.7.1 mod-list name patch is applied without errors in the offline harness and its text rules are unit-tested, but **it has not been seen on the in-game mod list yet**; if the label stays English, the patch found no matching label and needs the actual screen inspected.
 - The 112 figure counts offline cases, not in-game or online playthroughs.
+- v0.7.2: the treasure-row series, the special-map fixes (spoils rows, pruning guard, golden path stretch) and the parchment change are covered by the offline suite; the in-game look of the longer parchment (width matching the rolled ends, no overhang at the bottom of act 2) and the 45-row spoils map and the bonus treasure rows were then confirmed on screen by the user. The v0.7.0 co-op sync has since been confirmed in a real lobby through the diagnostics (`lobby: host floors 30/30/30 from …`, `bindNewRun: coop=True`).
 
 ## Layout
 
@@ -38,6 +47,7 @@ A longer map used to be drawn on the same fixed-height canvas, so the per-row di
 - `src/HostSync.cs` — host floor broadcast, lobby hooks, the net message.
 - `src/ModNameLocalization.cs` — makes the mod-list name follow the game language.
 - `src/MapLayout.cs` — keeps the vanilla map row spacing when extra floors are added.
+- `src/MapCompat.cs` — rules for the special act maps (treasure map, golden compass) and the bonus treasure rows.
 - `tests/Program.cs` — the offline suite.
 - `package/` — installable DLL, manifest, config and docs.
 - `evidence/` — original test log and the real-game config-page log evidence.

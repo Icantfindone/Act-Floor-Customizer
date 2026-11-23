@@ -16,7 +16,9 @@ public static class ModEntry
     public static FloorSettings Settings { get; private set; } = new();
     public static void Initialize()
     {
-        MapLayout.DiagnosticsEnabled = true;
+        // Diagnostics only run when the debug switch file exists, so a normal install writes nothing.
+        string switches = MapLayout.DebugSwitchPath;
+        MapLayout.DiagnosticsEnabled = switches.Length > 0 && File.Exists(switches);
         LoadAndPatch();
         InGameConfig.Register();
     }
@@ -28,6 +30,13 @@ public static class ModEntry
         harmony.PatchAll();
         MapLayout.ApplyExtraPatches(harmony);
         ModNameLocalization.Apply(harmony);
+        if (MapLayout.DiagnosticsEnabled)
+        {
+            MapLayout.ReadSwitches();
+            MapLayout.Diag("build 0.7.2-test probe");
+            MapProbe.Start();
+            GenProbe.Apply(harmony);
+        }
         MapLayout.Report();
         Console.WriteLine($"[ActFloorCustomizer] Extra floors: {Settings.Act1ExtraFloors}, {Settings.Act2ExtraFloors}, {Settings.Act3ExtraFloors}");
     }
@@ -38,6 +47,9 @@ public sealed class FloorSettings
     public int Act1ExtraFloors { get; set; } = 5;
     public int Act2ExtraFloors { get; set; } = 5;
     public int Act3ExtraFloors { get; set; } = 5;
+
+    /// <summary>Add a treasure row every N rows on stretched maps. 0 disables the bonus rows.</summary>
+    public int TreasureEveryRows { get; set; } = 7;
     public int ForAct(int index) => Math.Clamp(index switch
     {
         0 => Act1ExtraFloors, 1 => Act2ExtraFloors, 2 => Act3ExtraFloors, _ => 0
@@ -62,6 +74,7 @@ public sealed class FloorSettings
                     case "Act1ExtraFloors": result.Act1ExtraFloors = value; break;
                     case "Act2ExtraFloors": result.Act2ExtraFloors = value; break;
                     case "Act3ExtraFloors": result.Act3ExtraFloors = value; break;
+                    case "TreasureEveryRows": result.TreasureEveryRows = value; break;
                     default: throw new FormatException("Unknown setting: " + pair[0]);
                 }
             }
@@ -96,7 +109,7 @@ internal static class ModePatch
 }
 
 [HarmonyPatch(typeof(ActModel), nameof(ActModel.GetNumberOfRooms))]
-internal static class RoomCountPatch
+public static class RoomCountPatch
 {
     // EffectiveRooms is called from several hot paths (map layout, travelability, serialization),
     // so resolve the base-count property once per act type instead of searching every call.
@@ -146,16 +159,8 @@ internal static class LongMapPatch
         if (extra == 0) return;
         enablePruning = false;
         int rooms = RoomCountPatch.EffectiveRooms(actModel, isMultiplayer);
-        double ratio = (double)rooms / (rooms - extra);
-        var original = mapPointTypeCountsOverride ?? actModel.GetMapPointTypes(mapRng);
-        int Scale(int value) => (int)Math.Round(value * ratio, MidpointRounding.AwayFromZero);
-        var scaled = new MapPointTypeCounts(Scale(original.NumOfUnknowns), Scale(original.NumOfRests))
-        {
-            NumOfElites = Math.Min(14, Scale(original.NumOfElites)),
-            PointTypesThatIgnoreRules = new(original.PointTypesThatIgnoreRules)
-        };
-        AccessTools.Field(typeof(MapPointTypeCounts), "<NumOfShops>k__BackingField").SetValue(scaled, Scale(original.NumOfShops));
-        mapPointTypeCountsOverride = scaled;
+        mapPointTypeCountsOverride = LongMapRule.Scaled(
+            mapPointTypeCountsOverride ?? actModel.GetMapPointTypes(mapRng), rooms, extra);
     }
     static void Postfix(StandardActMap __instance, ActModel actModel, bool isMultiplayer)
     {
