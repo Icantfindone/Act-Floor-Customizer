@@ -54,7 +54,7 @@ Extra floors multiply the work every map-drawing mod does per frame, so a mod th
 - `src/MapCompat.cs` — rules for the special act maps (treasure map, golden compass) and the bonus treasure rows.
 - `tests/Program.cs` — the offline suite.
 - `package/` — installable DLL, manifest, config and docs.
-- `docs/` — readmes, changelog, install guides and the original test evidence.
+- `docs/` — changelog, install guides and the original test evidence (both readmes stay at the root).
 - `releases/` — the installable zips, one per version.
 
 Build with .NET 9: `dotnet build src/ActFloorCustomizer.csproj -c Release -p:UseSharedCompilation=false`. Update the game and BaseLib reference paths in the project file on another computer. Do not distribute the referenced game or third-party assemblies.
@@ -66,7 +66,7 @@ every release also has to exist as a zip in the GitHub release. The order is:
 
 1. Bump the version in `package/ActFloorCustomizer/ActFloorCustomizer.json`, and add the release
    notes to `docs/CHANGELOG.md` / `docs/CHANGELOG.zhs.md` plus the short "latest release" section in
-   `docs/README.md` / `docs/README.zhs.md`.
+   the root `README.md` / `README.zhs.md`.
 2. `powershell -NoProfile -ExecutionPolicy Bypass -File tools\release.ps1 -Version 0.8.4` — builds,
    runs the offline suite, refreshes `package/`, copies `docs/*.md` into it, writes
    `releases/ActFloorCustomizer-v0.8.4-sts2-v0.113.1.zip` with forward-slash entries, and points the

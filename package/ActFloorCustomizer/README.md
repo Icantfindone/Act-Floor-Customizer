@@ -5,7 +5,7 @@ parchment background, the treasure rows and the room mix all adjusting to the ne
 
 - **Steam Workshop:** https://steamcommunity.com/sharedfiles/filedetails/?id=3843992717
 - **中文说明:** [README.zhs.md](README.zhs.md)
-- **完整更新日志:** [CHANGELOG.md](CHANGELOG.md) / [CHANGELOG.zhs.md](CHANGELOG.zhs.md)
+- **完整更新日志:** [CHANGELOG.md](docs/CHANGELOG.md) / [CHANGELOG.zhs.md](docs/CHANGELOG.zhs.md)
 
 Target: game v0.113.1, BaseLib v3.4.8.
 
@@ -28,12 +28,14 @@ Target: game v0.113.1, BaseLib v3.4.8.
 
 **Manual:** copy the `ActFloorCustomizer` folder from the release zip into
 `Slay the Spire 2\mods\` (the folder holds `ActFloorCustomizer.dll` and `ActFloorCustomizer.json`).
-`settings.cfg` is optional; the mod runs without it.
+`settings.cfg` is optional; the mod runs without it. The zip of every version is in
+[`releases/`](releases/) and is attached to the matching
+[GitHub release](https://github.com/Icantfindone/Act-Floor-Customizer/releases).
 
 Co-op: every player needs the mod and BaseLib installed; the host's numbers decide the run.
 
-Full installation and co-op notes: [INSTALL_AND_COOP_EN.md](INSTALL_AND_COOP_EN.md) /
-[联机安装与使用说明.md](联机安装与使用说明.md).
+Full installation and co-op notes: [INSTALL_AND_COOP_EN.md](docs/INSTALL_AND_COOP_EN.md) /
+[联机安装与使用说明.md](docs/联机安装与使用说明.md).
 
 ## Configure
 
@@ -67,9 +69,9 @@ Details are in the changelog.
 - Every GitHub release carries the installable zip as an asset, so manual install no longer needs a
   build: download it, unzip, copy the `ActFloorCustomizer` folder into `Slay the Spire 2\mods\`.
 - Releases are now produced by `tools/release.ps1` plus `tools/publish-release.py`; see
-  [workshop/README.md](../workshop/README.md).
+  [workshop/README.md](workshop/README.md).
 
-The full list of changes for every version is in [CHANGELOG.md](CHANGELOG.md).
+The full list of changes for every version is in [CHANGELOG.md](docs/CHANGELOG.md).
 
 ## Verification status
 

@@ -27,9 +27,10 @@ if ($LASTEXITCODE -ne 0) { throw "build failed" }
 
 $dll = Join-Path $root "src\bin\Release\net9.0\ActFloorCustomizer.dll"
 Copy-Item $dll (Join-Path $root "package\ActFloorCustomizer\ActFloorCustomizer.dll") -Force
-# Every guide in docs/ is shipped flat inside the installed mod folder (English and Chinese).
-# Evidence files (verification-*.md) stay in the repository only.
-Get-ChildItem (Join-Path $root "docs") -Filter "*.md" -File | Where-Object { $_.Name -notlike "verification-*" } | ForEach-Object {
+# The readmes at the root and every guide in docs/ ship flat inside the installed mod folder
+# (English and Chinese). Evidence files (verification-*.md) stay in the repository only.
+$docs = @(Get-ChildItem $root -Filter "*.md" -File) + @(Get-ChildItem (Join-Path $root "docs") -Filter "*.md" -File)
+$docs | Where-Object { $_.Name -notlike "verification-*" } | ForEach-Object {
     Copy-Item $_.FullName (Join-Path $root ("package\ActFloorCustomizer\" + $_.Name)) -Force
 }
 Write-Host ("packaged dll {0} bytes, sha256 {1}" -f (Get-Item $dll).Length,

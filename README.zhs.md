@@ -5,7 +5,7 @@
 
 - **创意工坊：** https://steamcommunity.com/sharedfiles/filedetails/?id=3843992717
 - **English:** [README.md](README.md)
-- **完整更新日志：** [CHANGELOG.zhs.md](CHANGELOG.zhs.md) / [CHANGELOG.md](CHANGELOG.md)
+- **完整更新日志：** [CHANGELOG.zhs.md](docs/CHANGELOG.zhs.md) / [CHANGELOG.md](docs/CHANGELOG.md)
 
 适用版本：游戏 v0.113.1，BaseLib v3.4.8。
 
@@ -28,12 +28,13 @@
 
 **手动安装：** 把压缩包里的 `ActFloorCustomizer` 文件夹整个复制到
 `Slay the Spire 2\mods\` 下（里面有 `ActFloorCustomizer.dll` 和 `ActFloorCustomizer.json`）。
-`settings.cfg` 可有可无，没有也能正常运行。
+`settings.cfg` 可有可无，没有也能正常运行。每个版本的压缩包都在 [`releases/`](releases/)，
+同时也挂在对应的 [GitHub 发行版](https://github.com/Icantfindone/Act-Floor-Customizer/releases) 上。
 
 联机：每个玩家都要装好本模组和 BaseLib；一局里的数值以房主为准。
 
-详细安装和联机说明：[联机安装与使用说明.md](联机安装与使用说明.md) /
-[INSTALL_AND_COOP_EN.md](INSTALL_AND_COOP_EN.md)。
+详细安装和联机说明：[联机安装与使用说明.md](docs/联机安装与使用说明.md) /
+[INSTALL_AND_COOP_EN.md](docs/INSTALL_AND_COOP_EN.md)。
 
 ## 配置
 
@@ -62,9 +63,9 @@
 - 每个 GitHub 发行版都附带可直接手动安装的 zip：下载、解压、把 `ActFloorCustomizer` 文件夹放进
   `Slay the Spire 2\mods\` 即可，不需要自己编译。
 - 发版流程改成了 `tools/release.ps1` + `tools/publish-release.py`，见
-  [workshop/README.md](../workshop/README.md)。
+  [workshop/README.md](workshop/README.md)。
 
-每个版本的完整改动见 [CHANGELOG.zhs.md](CHANGELOG.zhs.md)。
+每个版本的完整改动见 [CHANGELOG.zhs.md](docs/CHANGELOG.zhs.md)。
 
 ## 验证情况
 
