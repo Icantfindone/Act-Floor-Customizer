@@ -230,7 +230,7 @@ static class ConfigHarness
 {
     public static void Check()
     {
-        foreach (string key in new[] { "Name", "Desc", "NextRun", "Act1", "Act2", "Act3", "ExtraHint", "Coop", "PerfHint", "CurrentRun", "Treasure", "TreasureHint", "MixTitle", "MixHint", "Unknown", "Shop", "Rest", "Elite" })
+        foreach (string key in new[] { "Name", "Desc", "NextRun", "Act1", "Act2", "Act3", "ExtraHint", "Coop", "PerfHint", "CurrentRun", "Treasure", "TreasureHint", "MixTitle", "MixHint", "Unknown", "Shop", "Rest", "Elite", "SecFloors", "SecTreasure", "SecMix" })
         {
             string english = InGameConfig.Translate(key, "eng");
             string chinese = InGameConfig.Translate(key, "zhs");

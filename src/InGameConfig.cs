@@ -47,6 +47,9 @@ public static class InGameConfig
             "Shop" => chinese ? "商店比例（%）" : "Shops (%)",
             "Rest" => chinese ? "休息点比例（%）" : "Rest sites (%)",
             "Elite" => chinese ? "精英比例（%）" : "Elites (%)",
+            "SecFloors" => chinese ? "每幕层数" : "Floors per act",
+            "SecTreasure" => chinese ? "宝箱行" : "Treasure rows",
+            "SecMix" => chinese ? "房间比例" : "Room mix",
             _ => key
         };
     }
@@ -80,15 +83,19 @@ public static class InGameConfig
 
 public sealed class FloorConfig : SimpleModConfig
 {
+    [ConfigSection("Floors")]
     [ConfigSlider(0, FloorSettings.MaxFloors, 1, Format = "{0:0}")]
     public static int Act1ExtraFloors { get => ModEntry.Settings.Act1ExtraFloors; set => ModEntry.Settings.Act1ExtraFloors = Math.Clamp(value, 0, FloorSettings.MaxFloors); }
     [ConfigSlider(0, FloorSettings.MaxFloors, 1, Format = "{0:0}")]
     public static int Act2ExtraFloors { get => ModEntry.Settings.Act2ExtraFloors; set => ModEntry.Settings.Act2ExtraFloors = Math.Clamp(value, 0, FloorSettings.MaxFloors); }
     [ConfigSlider(0, FloorSettings.MaxFloors, 1, Format = "{0:0}")]
     public static int Act3ExtraFloors { get => ModEntry.Settings.Act3ExtraFloors; set => ModEntry.Settings.Act3ExtraFloors = Math.Clamp(value, 0, FloorSettings.MaxFloors); }
+
+    [ConfigSection("TreasureRows", CollapsedByDefault = true)]
     [ConfigSlider(0, 30, 1, Format = "{0:0}")]
     public static int TreasureEveryRows { get => ModEntry.Settings.TreasureEveryRows; set => ModEntry.Settings.TreasureEveryRows = Math.Clamp(value, 0, 30); }
 
+    [ConfigSection("RoomMix", CollapsedByDefault = true)]
     [ConfigSlider(0, RoomMix.MaxPercent, 5, Format = "{0:0}")]
     public static int UnknownPercent { get => ModEntry.Settings.UnknownPercent; set => ModEntry.Settings.UnknownPercent = Math.Clamp(value, 0, RoomMix.MaxPercent); }
     [ConfigSlider(0, RoomMix.MaxPercent, 5, Format = "{0:0}")]
@@ -127,6 +134,9 @@ internal static class BaseLibLabelPatch
             "ShopPercent" => "Shop",
             "RestPercent" => "Rest",
             "ElitePercent" => "Elite",
+            "Floors" => "SecFloors",
+            "TreasureRows" => "SecTreasure",
+            "RoomMix" => "SecMix",
             _ => null
         };
         if (key == null) return true;

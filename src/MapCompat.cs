@@ -126,10 +126,16 @@ public static class TreasureRows
             if (rows < every + 4) return 0;
 
             var changed = new List<int>();
+            // The treasure map (spoils) act keeps one special chest in the middle of its row and
+            // reroutes every other room of that row through it. Leave that row alone so the
+            // special chest stays the only chest there.
+            int chestRow = map is SpoilsActMap ? rows - 7 : -1;
+            if (chestRow >= 0) KeepOnlyChest(map, chestRow);
             // The vanilla treasure row sits seven rows above the boss. Count it as part of the
             // series, then add one more every N rows going up, so the spacing stays even.
             for (int row = rows - 7; row >= 3; row -= every)
             {
+                if (row == chestRow) continue;
                 bool touched = false;
                 foreach (MapPoint point in AllInRow(map, row))
                 {
@@ -157,6 +163,26 @@ public static class TreasureRows
         foreach (MapPoint point in map.GetAllMapPoints())
             if (point.coord.row == row)
                 yield return point;
+    }
+
+    // The spoils row holds exactly one treasure point after the vanilla generation. If anything
+    // else ended up there, turn the extras back into normal fights so the special chest is the
+    // only chest of its row.
+    private static void KeepOnlyChest(ActMap map, int row)
+    {
+        MapPoint? chest = null;
+        foreach (MapPoint point in AllInRow(map, row))
+        {
+            if (point.PointType != MapPointType.Treasure) continue;
+            if (chest == null || (!point.CanBeModified && chest.CanBeModified)) chest = point;
+        }
+        if (chest == null) return;
+        foreach (MapPoint point in AllInRow(map, row))
+        {
+            if (ReferenceEquals(point, chest)) continue;
+            if (point.PointType != MapPointType.Treasure) continue;
+            point.PointType = MapPointType.Monster;
+        }
     }
 }
 
