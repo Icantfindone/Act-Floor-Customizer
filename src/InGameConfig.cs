@@ -23,7 +23,9 @@ public static class InGameConfig
             "Act2" => chinese ? "第二幕额外层数" : "Act 2: extra floors",
             "Act3" => chinese ? "第三幕额外层数" : "Act 3: extra floors",
             "ExtraHint" => chinese ? "在原版层数上增加；0 表示不增加。" : "Added to the normal floor count. Set to 0 for no extra floors.",
-            "Coop" => chinese ? "联机：所有玩家版本和三个数字须一致" : "Co-op: everyone needs the same version and settings.",
+            "Coop" => chinese
+                ? "联机：以房主的三个数字为准，其他人改了也不生效。"
+                : "Co-op: the host's three values are used by everyone. Other players' own numbers are ignored.",
             "PerfHint" => chinese
                 ? "注意：地图增强的路线分析会穷举所有路线，层级太高会卡死。建议每幕不超过 15 层。"
                 : "Note: the map mod's route analysis enumerates every route and stalls on very long maps. Keep each act at 15 floors or below.",
@@ -112,10 +114,23 @@ public static class RunSettings
         Snapshots.Add(act, new Snapshot(Math.Clamp(extra, 0, 30)));
     }
 
-    // All acts are bound before the native encounter pools are generated.
+    // All acts are bound before the native encounter pools are generated. In co-op every peer builds
+    // its own RunState from the same seed, so the host's numbers must win here or the peers would
+    // generate different rooms and different maps.
     public static void BindNewRun(RunState state)
     {
-        foreach (var act in state.Acts) Bind(act, ModEntry.Settings.ForAct(act.Index));
+        bool coop = state.Players.Count > 1;
+        foreach (var act in state.Acts) Bind(act, ExtraForNewRun(act.Index, coop));
+        if (coop) MapLayout.Diag($"bindNewRun: coop={coop} extra={ExtraForNewRun(0, coop)}/{ExtraForNewRun(1, coop)}/{ExtraForNewRun(2, coop)}");
+    }
+
+    // Single rule for the whole feature: in co-op the host's three numbers apply to every peer,
+    // everywhere else the local sliders apply.
+    public static int ExtraForNewRun(int actIndex, bool coop)
+    {
+        if (coop && HostSync.TryGet(out int act1, out int act2, out int act3))
+            return Math.Clamp(actIndex switch { 0 => act1, 1 => act2, 2 => act3, _ => 0 }, 0, 30);
+        return ModEntry.Settings.ForAct(actIndex);
     }
 
     // v0.2+ saves already store the full encounter pools for every act. Recover the

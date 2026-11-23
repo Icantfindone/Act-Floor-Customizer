@@ -1,8 +1,8 @@
 {
   "title": "Act Floor Customizer / 每幕自定义加层",
-  "description": "[h1]每幕自定义加层 / Act Floor Customizer[/h1]\n在游戏内给第一、二、三幕分别增加 0～30 个普通楼层，并通过 BaseLib 的模组配置页调节。\nAdd extra floors to Acts 1, 2 and 3, configured in-game through BaseLib's mod config page.\n\n[h2]功能 / Features[/h2]\n[list]\n[*]三幕分别设置，每个 0～30 层，0 = 保持原版长度。\n[*]问号、商店、休息点、精英配额按地图长度近似等比增加，普通战斗池同步变长。\n[*]加长后的地图会按原版行距绘制并纵向拉伸，房间不再挤在一起；羊皮纸背景同步加长。\n[*]支持中英文界面，跟随游戏语言。\n[*]支持多人，但所有玩家必须使用相同版本和相同的三个数值。\n[/list]\n\n[h2]安装 / Install[/h2]\n订阅本模组，同时订阅前置 [url=https://steamcommunity.com/sharedfiles/filedetails/?id=3737335127]BaseLib[/url]。启动游戏后在模组列表启用并重启。\n\n[h2]设置 / Configure[/h2]\n主菜单 → BaseLib 的模组配置页面 → 每幕自定义加层。三个滑块分别对应三幕。设置会在下一局生效，已经开始的局不会重画地图。\n\n[h2]注意事项 / Notes[/h2]\n[list]\n[*]多人游戏没有配置自动同步，也不会拦截不一致的设置。开局前请互相截图核对三个数字。\n[*]同时使用「地图增强」等会穷举所有路线的模组时，建议每幕不超过 15 层。实测 46 行地图有约 5000 万条路线，会让路线分析卡死。\n[*]Blitz 模式不适用。\n[*]不兼容会改写战斗池或地图结构的其他模组，需自行测试。\n[/list]",
+  "description": "[h1]每幕自定义加层 / Act Floor Customizer[/h1]\n在游戏内给第一、二、三幕分别增加 0～30 个普通楼层，并通过 BaseLib 的模组配置页调节。\nAdd extra floors to Acts 1, 2 and 3, configured in-game through BaseLib's mod config page.\n\n[h2]功能 / Features[/h2]\n[list]\n[*]三幕分别设置，每个 0～30 层，0 = 保持原版长度。\n[*]问号、商店、休息点、精英配额按地图长度近似等比增加，普通战斗池同步变长。\n[*]加长后的地图会按原版行距绘制并纵向拉伸，房间不再挤在一起；羊皮纸背景同步加长。\n[*]支持中英文界面，跟随游戏语言。\n[*]支持多人：层级以房主的设置为准，其他人自己的数字不生效。\n[/list]\n\n[h2]安装 / Install[/h2]\n订阅本模组，同时订阅前置 [url=https://steamcommunity.com/sharedfiles/filedetails/?id=3737335127]BaseLib[/url]。启动游戏后在模组列表启用并重启。\n\n[h2]设置 / Configure[/h2]\n主菜单 → BaseLib 的模组配置页面 → 每幕自定义加层。三个滑块分别对应三幕。设置会在下一局生效，已经开始的局不会重画地图。\n\n[h2]注意事项 / Notes[/h2]\n[list]\n[*]多人游戏由房主在大厅开局时把三个数字发给所有人，客户端会忽略自己本地的设置。房主若在局中改数字，只影响下一次新开的局。\n[*]同时使用「地图增强」等会穷举所有路线的模组时，建议每幕不超过 15 层。实测 46 行地图有约 5000 万条路线，会让路线分析卡死。\n[*]Blitz 模式不适用。\n[*]不兼容会改写战斗池或地图结构的其他模组，需自行测试。\n[/list]",
   "visibility": "private",
-  "changeNote": "0.6.0 首次发布：三幕分别加层、BaseLib 游戏内配置、加长地图按原版行距绘制并同步拉伸背景。",
+  "changeNote": "0.7.0：联机改为以房主设置为准，房主开局时自动把三个数字同步给所有人；其他人自己调的数字不再生效。",
   "tags": ["QoL", "English", "Simplified Chinese"],
   "dependencies": [3737335127],
   "contentDescriptors": []

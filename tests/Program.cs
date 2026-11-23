@@ -26,6 +26,7 @@ static void RunTests()
     LayoutHarness.Check();
     LayoutHarness.CheckTranspiler();
     ConfigHarness.Check();
+    SyncHarness.Check();
     var managerState = typeof(MegaCrit.Sts2.Core.Modding.ModManager).GetProperty("State")!;
     managerState.SetValue(null, Enum.Parse(managerState.PropertyType, "Initialized"));
     ModelDb.Init();
@@ -245,3 +246,61 @@ static class ConfigHarness
     }
 }
 
+
+static class SyncHarness
+{
+    public static void Check()
+    {
+        int saved1 = ModEntry.Settings.Act1ExtraFloors, saved2 = ModEntry.Settings.Act2ExtraFloors, saved3 = ModEntry.Settings.Act3ExtraFloors;
+        try
+        {
+            ModEntry.Settings.Act1ExtraFloors = 7;
+            ModEntry.Settings.Act2ExtraFloors = 8;
+            ModEntry.Settings.Act3ExtraFloors = 9;
+
+            HostSync.Forget();
+            Require(!HostSync.TryGet(out _, out _, out _), "no host values expected");
+            Require(RunSettings.ExtraForNewRun(0, coop: true) == 7, "coop without host values falls back to local");
+            Require(RunSettings.ExtraForNewRun(2, coop: true) == 9, "coop fallback act 3");
+
+            HostSync.Apply(2, 3, 4);
+            Require(RunSettings.ExtraForNewRun(0, coop: true) == 2, "host act 1 wins in coop");
+            Require(RunSettings.ExtraForNewRun(1, coop: true) == 3, "host act 2 wins in coop");
+            Require(RunSettings.ExtraForNewRun(2, coop: true) == 4, "host act 3 wins in coop");
+            Require(RunSettings.ExtraForNewRun(0, coop: false) == 7, "singleplayer ignores host values");
+            Require(RunSettings.ExtraForNewRun(2, coop: false) == 9, "singleplayer ignores host values act 3");
+
+            HostSync.Apply(-5, 99, 30);
+            Require(RunSettings.ExtraForNewRun(0, coop: true) == 0, "host value clamp low");
+            Require(RunSettings.ExtraForNewRun(1, coop: true) == 30, "host value clamp high");
+            Require(RunSettings.ExtraForNewRun(2, coop: true) == 30, "host value clamp high act 3");
+
+            HostSync.Apply(2, 3, 4);
+            HostSync.Forget();
+            Require(RunSettings.ExtraForNewRun(0, coop: true) == 7, "forget restores local values");
+
+            var message = new HostFloorsMessage { Act1 = 2, Act2 = 3, Act3 = 30 };
+            Require(message.ShouldBroadcast, "message must broadcast");
+            Require(message.Mode == MegaCrit.Sts2.Core.Multiplayer.Transport.NetTransferMode.Reliable, "message must be reliable");
+            Require(message.ShouldBuffer, "message must buffer");
+            var writer = new MegaCrit.Sts2.Core.Multiplayer.Serialization.PacketWriter();
+            message.Serialize(writer);
+            Require(writer.BytePosition == 3, "three bytes on the wire, got " + writer.BytePosition);
+            var reader = new MegaCrit.Sts2.Core.Multiplayer.Serialization.PacketReader();
+            reader.Reset(writer.Buffer);
+            var copy = new HostFloorsMessage();
+            copy.Deserialize(reader);
+            Require(copy.Act1 == 2 && copy.Act2 == 3 && copy.Act3 == 30, $"roundtrip {copy.Act1}/{copy.Act2}/{copy.Act3}");
+            Console.WriteLine("PASS: host floor values win in co-op only, clamping, message contract and 3-byte roundtrip.");
+        }
+        finally
+        {
+            HostSync.Forget();
+            ModEntry.Settings.Act1ExtraFloors = saved1;
+            ModEntry.Settings.Act2ExtraFloors = saved2;
+            ModEntry.Settings.Act3ExtraFloors = saved3;
+        }
+    }
+
+    static void Require(bool ok, string message) { if (!ok) throw new Exception(message); }
+}

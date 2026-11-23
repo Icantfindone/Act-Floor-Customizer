@@ -1,4 +1,4 @@
-# Act Floor Customizer v0.6.0 — installation and co-op
+# Act Floor Customizer v0.7.0 — installation and co-op
 
 Targets **Slay the Spire 2 v0.113.1**. Uses **BaseLib's built-in ModConfig**, compiled against the installed BaseLib v3.4.8 API.
 
@@ -9,7 +9,7 @@ Targets **Slay the Spire 2 v0.113.1**. Uses **BaseLib's built-in ModConfig**, co
 Or install manually:
 
 1. Close the game. Subscribe to and enable [BaseLib by Alchyr](https://steamcommunity.com/sharedfiles/filedetails/?id=3737335127), including its supplied compatibility helper components.
-2. Extract `ActFloorCustomizer-v0.6.0-sts2-v0.113.1.zip`.
+2. Extract `ActFloorCustomizer-v0.7.0-sts2-v0.113.1.zip`.
 3. In Steam, right-click the game → Manage → Browse local files. Copy the extracted `ActFloorCustomizer` folder into the game's `mods` folder. Create `mods` if necessary.
 4. Launch the game, enable the mod, and restart if prompted. When updating, replace existing files rather than keeping multiple versions.
 
@@ -31,10 +31,11 @@ On first upgrade, the mod migrates its old BonModConfig values if present; other
 
 ## Co-op checklist
 
-- Everyone installs version 0.5.2 and compatible BaseLib, not just the host.
-- Everyone uses the same game version and exactly the same three slider values. Compare screenshots before starting.
-- **No automatic host settings sync or mismatch protection is provided.** Joining a lobby does not prove that settings match.
-- Set values before creating a lobby. If values change afterward, leave and create a new lobby.
+- **From v0.7.0 the host decides.** When the host presses start, its three values are sent to everyone in the lobby; other players use those values for that run no matter what their own sliders say. Their own numbers still apply in their singleplayer runs and when they host, and nothing is written into their config file.
+- Everyone installs v0.7.0 and compatible BaseLib, not just the host — game and mod versions must match anyway.
+- Only the host needs to check the numbers before starting. Other players do not need to change anything.
+- Loading a saved co-op run restores the floor counts from the saved encounter pools, matching what the host used at the time.
+- **Still no mismatch protection and no version warning**: joining a lobby does not prove the setup is correct. The host must have this mod installed and enabled.
 - Other gameplay mods must also satisfy the game's multiplayer compatibility requirements.
 
 ## How a longer map is drawn
@@ -60,15 +61,17 @@ Existing maps are not regenerated. Standard v0.2+ saves recover their settings f
 
 Real-game evidence (2026-11-22, this machine's log): the game loaded the mod and logged `[BaseLib] Registered config for mod ActFloorCustomizer`; opening BaseLib's mod config page ran `Setting up SimpleModConfig ActFloorCustomizer.FloorConfig` and built the slider controls; quitting ran `[BaseLib] NGame.Quit(): saving all ModConfigs` and produced `%APPDATA%\SlayTheSpire2\mod_configs\ActFloorCustomizer.cfg` (10 / 10 / 10 at the time). See `evidence/verification-2026-11-22-ingame.md`.
 
-Co-op was tested by the user on 2026-11-22 with matching settings and versions.
+The stretched map and parchment were confirmed on screen by the user (screenshots from the 0.5.3–0.5.5 builds). Scrolling all the way to the top of a very long map and the act-start animation were not checked separately.
 
-Still not verified in game: how the stretched map actually looks (row spacing, boss placement, scrolling to the very top), the act-start animation, how the sliders render, and restoring the saved `.cfg` after a restart. The 112 figure counts offline cases, not in-game or online runs.
+The v0.7.0 co-op sync passes offline checks: host values win in a multiplayer run, singleplayer still uses the local sliders, clamping, the message's broadcast/reliable/buffered flags, and a three-byte serialize/deserialize roundtrip, on top of the 112 map/encounter cases. **It has not been run in a real two-player lobby yet.** Verify with a host and a client whose sliders differ: both should see the host's floor count in the same act. The diagnostic log should show `lobby: sent host floors` on the host, `lobby: host floors ... from` on the client, and `bindNewRun: coop=True extra=...` on both.
+
+The 112 figure counts offline cases, not in-game or online runs.
 
 To disable, finish your current modded run, disable Act Floor Customizer, and restart. Keep BaseLib if other mods use it.
 
 ## Diagnostic log
 
-The mod writes `ActFloorCustomizer-diag.log` next to its DLL (the game does not keep standard output). Each map records generation time, map-screen layout time, path node count and the background scale/position. Attach that file when reporting a stutter or a visual glitch.
+The mod writes `%APPDATA%\SlayTheSpire2\ActFloorCustomizer-diag.log` (the game does not keep standard output). Each map records generation time, map-screen layout time, path node count and the background scale/position; in co-op it also records the host values being sent, received and bound. Attach that file when reporting a stutter or a visual glitch.
 ## Compatibility with route-analysis mods
 
 Tools such as Map Enhance enumerate **every** route from the start to the boss to annotate win rates, and the number of routes grows roughly exponentially with map height. On one measured map (act 1, 15 + 30 = 46 rows, 183 nodes, 234 edges) there are **50,055,744** distinct routes; the tool collects all of them into a list and sorts it, which stalls the game for a very long time at high floor counts. The game logs no error, and this mod lays the map out in about 49 ms, so the stall is not here.
