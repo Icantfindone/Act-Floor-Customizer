@@ -54,7 +54,8 @@ Extra floors multiply the work every map-drawing mod does per frame, so a mod th
 - `src/MapCompat.cs` — rules for the special act maps (treasure map, golden compass) and the bonus treasure rows.
 - `tests/Program.cs` — the offline suite.
 - `package/` — installable DLL, manifest, config and docs.
-- `evidence/` — original test log and the real-game config-page log evidence.
+- `docs/` — readmes, changelog, install guides and the original test evidence.
+- `releases/` — the installable zips, one per version.
 
 Build with .NET 9: `dotnet build src/ActFloorCustomizer.csproj -c Release -p:UseSharedCompilation=false`. Update the game and BaseLib reference paths in the project file on another computer. Do not distribute the referenced game or third-party assemblies.
 
@@ -64,17 +65,18 @@ The Workshop is not the only way to install the mod: people also copy a folder i
 every release also has to exist as a zip in the GitHub release. The order is:
 
 1. Bump the version in `package/ActFloorCustomizer/ActFloorCustomizer.json`, and add the release
-   notes to `CHANGELOG.md` / `CHANGELOG.zhs.md` plus the short "latest release" section in
-   `README.md` / `README.zhs.md`.
-2. `pwsh tools\release.ps1 -Version 0.8.3` — builds, runs the offline suite, refreshes
-   `package/`, writes `ActFloorCustomizer-v0.8.3-sts2-v0.113.1.zip` with forward-slash entries,
-   and points the `.gitignore` exception at the new zip (old zips are removed).
+   notes to `docs/CHANGELOG.md` / `docs/CHANGELOG.zhs.md` plus the short "latest release" section in
+   `docs/README.md` / `docs/README.zhs.md`.
+2. `powershell -NoProfile -ExecutionPolicy Bypass -File tools\release.ps1 -Version 0.8.4` — builds,
+   runs the offline suite, refreshes `package/`, copies `docs/*.md` into it, writes
+   `releases/ActFloorCustomizer-v0.8.4-sts2-v0.113.1.zip` with forward-slash entries, and points the
+   `.gitignore` exception at the new zip (older zips below `releases/` are removed).
 3. Copy `package/ActFloorCustomizer/*.dll|json` and `workshop/workshop.json` into the uploader
    workspace, run `ModUploader.exe upload -w ActFloorCustomizer`, then publish the Chinese variant
    with `workshop/localizer/WorkshopLocalizer.exe`.
-4. `python tools\publish-release.py --version 0.8.3 --notes-file <notes.md>` with `GH_TOKEN` set —
-   creates the git tag and release and uploads the zip as a release asset (an existing release for
-   the same tag is reused and its asset replaced).
+4. `python tools\publish-release.py --version 0.8.4 --notes-file <notes.md>` with `GH_TOKEN` set —
+   creates the git tag and release and uploads the zip from `releases/` as a release asset (an
+   existing release for the same tag is reused and its asset replaced).
 5. `git add -A`, commit, push. `remote.origin.url` must stay token-free; push with
    `git -c http.sslBackend=openssl push https://<token>@github.com/... main` and never with `-u`.
 

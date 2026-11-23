@@ -62,7 +62,7 @@
 - 每个 GitHub 发行版都附带可直接手动安装的 zip：下载、解压、把 `ActFloorCustomizer` 文件夹放进
   `Slay the Spire 2\mods\` 即可，不需要自己编译。
 - 发版流程改成了 `tools/release.ps1` + `tools/publish-release.py`，见
-  [workshop/README.md](workshop/README.md)。
+  [workshop/README.md](../workshop/README.md)。
 
 每个版本的完整改动见 [CHANGELOG.zhs.md](CHANGELOG.zhs.md)。
 

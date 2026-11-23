@@ -67,7 +67,7 @@ Details are in the changelog.
 - Every GitHub release carries the installable zip as an asset, so manual install no longer needs a
   build: download it, unzip, copy the `ActFloorCustomizer` folder into `Slay the Spire 2\mods\`.
 - Releases are now produced by `tools/release.ps1` plus `tools/publish-release.py`; see
-  [workshop/README.md](workshop/README.md).
+  [workshop/README.md](../workshop/README.md).
 
 The full list of changes for every version is in [CHANGELOG.md](CHANGELOG.md).
 

@@ -1,6 +1,6 @@
-# Builds the mod, refreshes package/, and produces the installable zip.
-# Usage:  pwsh tools\release.ps1 -Version 0.8.3
-# Afterwards publish it:  python tools\publish-release.py --version 0.8.3 --notes-file RELEASE_NOTES.md
+# Builds the mod, refreshes package/, and produces the installable zip in releases/.
+# Usage:  powershell -NoProfile -ExecutionPolicy Bypass -File tools\release.ps1 -Version 0.8.4
+# Afterwards publish it:  python tools\publish-release.py --version 0.8.4 --notes-file notes.md
 param(
     [Parameter(Mandatory = $true)][string]$Version,
     [string]$GameBuild = "v0.113.1"
@@ -27,15 +27,17 @@ if ($LASTEXITCODE -ne 0) { throw "build failed" }
 
 $dll = Join-Path $root "src\bin\Release\net9.0\ActFloorCustomizer.dll"
 Copy-Item $dll (Join-Path $root "package\ActFloorCustomizer\ActFloorCustomizer.dll") -Force
-# Every markdown file at the repo root is shipped inside the package (English and Chinese docs).
-Get-ChildItem $root -Filter "*.md" -File | ForEach-Object {
+# Every guide in docs/ is shipped flat inside the installed mod folder (English and Chinese).
+Get-ChildItem (Join-Path $root "docs") -Filter "*.md" -File | ForEach-Object {
     Copy-Item $_.FullName (Join-Path $root ("package\ActFloorCustomizer\" + $_.Name)) -Force
 }
 Write-Host ("packaged dll {0} bytes, sha256 {1}" -f (Get-Item $dll).Length,
     (Get-FileHash $dll -Algorithm SHA256).Hash)
 
+$releaseDir = Join-Path $root "releases"
+if (-not (Test-Path $releaseDir)) { New-Item -ItemType Directory -Path $releaseDir | Out-Null }
 $zipName = "ActFloorCustomizer-v$Version-sts2-$GameBuild.zip"
-$zip = Join-Path $root $zipName
+$zip = Join-Path $releaseDir $zipName
 if (Test-Path $zip) { Remove-Item $zip -Force }
 
 # PowerShell 5.1's Compress-Archive writes backslash entry names, which some unzippers on other
@@ -55,23 +57,23 @@ foreach ($file in (Get-ChildItem $source -File | Sort-Object Name)) {
 }
 $archive.Dispose()
 $stream.Dispose()
-Write-Host ("zip {0} ({1} bytes)" -f $zipName, (Get-Item $zip).Length)
+Write-Host ("zip releases\{0} ({1} bytes)" -f $zipName, (Get-Item $zip).Length)
 
-# Keep exactly one distributable in the repo.
+# Keep exactly one distributable committed.
 $ignore = Join-Path $root ".gitignore"
 $text = [System.IO.File]::ReadAllText($ignore)
-$text = [regex]::Replace($text, '(?m)^!/ActFloorCustomizer-v[0-9.]+-sts2-[^\r\n]*\.zip$',
-    "!/$zipName")
+$text = [regex]::Replace($text, '(?m)^!/releases/ActFloorCustomizer-v[0-9.]+-sts2-[^\r\n]*\.zip$',
+    "!/releases/$zipName")
 [System.IO.File]::WriteAllText($ignore, $text, (New-Object System.Text.UTF8Encoding($false)))
 
-# Keep exactly one distributable in the repo. The v0.4.0 zip is the original handoff artifact and
+# Keep exactly one distributable in releases/. The v0.4.0 zip is the original handoff artifact and
 # stays committed for provenance, so it is never removed here.
-Get-ChildItem $root -Filter "ActFloorCustomizer-v*.zip" |
+Get-ChildItem $releaseDir -Filter "ActFloorCustomizer-v*.zip" |
     Where-Object { $_.Name -ne $zipName -and $_.Name -notlike "*v0.4.0*" } |
     ForEach-Object { Remove-Item $_.FullName -Force; Write-Host "removed old $($_.Name)" }
 
 Write-Host ""
 Write-Host "next:"
-Write-Host "  1. update CHANGELOG.md / CHANGELOG.zhs.md and README 'latest release' section"
+Write-Host "  1. update docs/CHANGELOG.md, docs/CHANGELOG.zhs.md and the README latest-release section"
 Write-Host "  2. copy package to the workshop workspace and run ModUploader.exe upload -w ActFloorCustomizer"
 Write-Host "  3. python tools\publish-release.py --version $Version --notes-file <notes.md>"

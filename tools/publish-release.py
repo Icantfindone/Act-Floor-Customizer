@@ -56,7 +56,7 @@ def main():
 
     root = pathlib.Path(__file__).resolve().parent.parent
     zip_path = pathlib.Path(args.zip) if args.zip else (
-        root / f"ActFloorCustomizer-v{args.version}-sts2-{GAME_BUILD}.zip")
+        root / "releases" / f"ActFloorCustomizer-v{args.version}-sts2-{GAME_BUILD}.zip")
     if not zip_path.exists():
         sys.exit(f"missing {zip_path}; run tools/release.ps1 first")
     notes = pathlib.Path(args.notes_file).read_text(encoding="utf-8")
