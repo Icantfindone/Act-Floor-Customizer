@@ -40,22 +40,23 @@ static void RunTests()
     MegaCrit.Sts2.Core.Multiplayer.Serialization.ModelIdSerializationCache.Init();
     ModelDb.InitIds();
     MapCompatHarness.Check();
+    RoomMixHarness.Check();
     Console.WriteLine("Patches loaded; creating act models.");
     ActModel[] acts = [ModelDb.Act<Overgrowth>(), ModelDb.Act<Underdocks>(), ModelDb.Act<Hive>(), ModelDb.Act<Glory>()];
     int checks = 0;
     foreach (var act in acts)
     {
         int vanilla = act.Index switch { 0 => 15, 1 => 14, 2 => 13, _ => throw new Exception() };
-        for (int extra = 0; extra <= 30; extra++)
+        for (int extra = 0; extra <= FloorSettings.MaxFloors; extra++)
         {
             ModEntry.Settings.Act1ExtraFloors = extra;
-            ModEntry.Settings.Act2ExtraFloors = (extra + 7) % 31;
-            ModEntry.Settings.Act3ExtraFloors = (extra + 19) % 31;
+            ModEntry.Settings.Act2ExtraFloors = (extra + 7) % (FloorSettings.MaxFloors + 1);
+            ModEntry.Settings.Act3ExtraFloors = (extra + 19) % (FloorSettings.MaxFloors + 1);
             int expected = vanilla + ModEntry.Settings.ForAct(act.Index);
             Require(act.GetNumberOfRooms(false) == expected, "room count");
             Require(act.GetNumberOfRooms(true) == expected - 1, "multiplayer count");
             Require(act.GetNumberOfFloors(false) == expected + 2, "floor count");
-            if (!new[] { 0, 1, 5, 10, 15, 20, 30 }.Contains(extra)) continue;
+            if (!new[] { 0, 1, 5, 10, 15, 20, 30, 50 }.Contains(extra)) continue;
             for (ulong seed = 0; seed < 2; seed++)
             foreach (bool multiplayer in new[] { false, true })
             {
@@ -87,7 +88,7 @@ static void RunTests()
                 RunSettings.Bind(mutable, ModEntry.Settings.ForAct(act.Index));
                 int frozen = mutable.GetNumberOfRooms(multiplayer);
                 int oldFirst = ModEntry.Settings.Act1ExtraFloors;
-                ModEntry.Settings.Act1ExtraFloors = 30;
+                ModEntry.Settings.Act1ExtraFloors = FloorSettings.MaxFloors;
                 Require(mutable.GetNumberOfRooms(multiplayer) == frozen, "active run settings changed");
                 var restoredAct = ActModel.FromSave(mutable.ToSave());
                 RunSettings.BindLoadedAct(restoredAct, multiplayer);
@@ -97,7 +98,7 @@ static void RunTests()
             }
         }
     }
-    Console.WriteLine($"PASS: {checks} cases across all four acts; 0-30 count settings; single/multiplayer maps, scaled room budgets, matching encounter pools after pre-JIT, peer determinism, boss placement, reachability and JSON save/load.");
+    Console.WriteLine($"PASS: {checks} cases across all four acts; 0-50 count settings; single/multiplayer maps, scaled room budgets, matching encounter pools after pre-JIT, peer determinism, boss placement, reachability and JSON save/load.");
 }
 
 static void Require(bool ok, string message) { if (!ok) throw new Exception(message); }
@@ -229,7 +230,7 @@ static class ConfigHarness
 {
     public static void Check()
     {
-        foreach (string key in new[] { "Name", "Desc", "NextRun", "Act1", "Act2", "Act3", "ExtraHint", "Coop", "PerfHint", "CurrentRun", "Treasure", "TreasureHint" })
+        foreach (string key in new[] { "Name", "Desc", "NextRun", "Act1", "Act2", "Act3", "ExtraHint", "Coop", "PerfHint", "CurrentRun", "Treasure", "TreasureHint", "MixTitle", "MixHint", "Unknown", "Shop", "Rest", "Elite" })
         {
             string english = InGameConfig.Translate(key, "eng");
             string chinese = InGameConfig.Translate(key, "zhs");
@@ -239,10 +240,19 @@ static class ConfigHarness
         {
             var property = typeof(FloorConfig).GetProperty(name)!;
             var slider = property.GetCustomAttribute<BaseLib.Config.ConfigSliderAttribute>()!;
-            if (slider.Min != 0 || slider.Max != 30 || slider.Step != 1 || slider.Format != "{0:0}") throw new Exception("BaseLib slider metadata");
+            if (slider.Min != 0 || slider.Max != FloorSettings.MaxFloors || slider.Step != 1 || slider.Format != "{0:0}") throw new Exception("BaseLib slider metadata");
             property.SetValue(null, 99);
-            if ((int)property.GetValue(null)! != 30) throw new Exception("Slider clamping");
+            if ((int)property.GetValue(null)! != FloorSettings.MaxFloors) throw new Exception("Slider clamping");
             property.SetValue(null, 5);
+        }
+        foreach (string name in new[] { "UnknownPercent", "ShopPercent", "RestPercent", "ElitePercent" })
+        {
+            var property = typeof(FloorConfig).GetProperty(name)!;
+            var slider = property.GetCustomAttribute<BaseLib.Config.ConfigSliderAttribute>()!;
+            if (slider.Min != 0 || slider.Max != RoomMix.MaxPercent || slider.Step != 5) throw new Exception("room mix slider metadata");
+            property.SetValue(null, 150);
+            if ((int)property.GetValue(null)! != RoomMix.MaxPercent) throw new Exception("room mix slider clamping");
+            property.SetValue(null, 0);
         }
         if (!typeof(BaseLib.Config.SimpleModConfig).IsAssignableFrom(typeof(FloorConfig))) throw new Exception("Wrong config backend");
         if (typeof(ModEntry).Assembly.GetReferencedAssemblies().Any(a => a.Name == "BonModConfig")) throw new Exception("Old dependency remains");
@@ -256,6 +266,8 @@ static class SyncHarness
     public static void Check()
     {
         int saved1 = ModEntry.Settings.Act1ExtraFloors, saved2 = ModEntry.Settings.Act2ExtraFloors, saved3 = ModEntry.Settings.Act3ExtraFloors;
+        int savedUnknown = ModEntry.Settings.UnknownPercent, savedShop = ModEntry.Settings.ShopPercent;
+        int savedRest = ModEntry.Settings.RestPercent, savedElite = ModEntry.Settings.ElitePercent;
         try
         {
             ModEntry.Settings.Act1ExtraFloors = 7;
@@ -263,7 +275,7 @@ static class SyncHarness
             ModEntry.Settings.Act3ExtraFloors = 9;
 
             HostSync.Forget();
-            Require(!HostSync.TryGet(out _, out _, out _), "no host values expected");
+            Require(!HostSync.TryGet(out _), "no host values expected");
             Require(RunSettings.ExtraForNewRun(0, coop: true) == 7, "coop without host values falls back to local");
             Require(RunSettings.ExtraForNewRun(2, coop: true) == 9, "coop fallback act 3");
 
@@ -274,28 +286,39 @@ static class SyncHarness
             Require(RunSettings.ExtraForNewRun(0, coop: false) == 7, "singleplayer ignores host values");
             Require(RunSettings.ExtraForNewRun(2, coop: false) == 9, "singleplayer ignores host values act 3");
 
-            HostSync.Apply(-5, 99, 30);
+            HostSync.Apply(-5, 99, FloorSettings.MaxFloors);
             Require(RunSettings.ExtraForNewRun(0, coop: true) == 0, "host value clamp low");
-            Require(RunSettings.ExtraForNewRun(1, coop: true) == 30, "host value clamp high");
-            Require(RunSettings.ExtraForNewRun(2, coop: true) == 30, "host value clamp high act 3");
+            Require(RunSettings.ExtraForNewRun(1, coop: true) == FloorSettings.MaxFloors, "host value clamp high");
+            Require(RunSettings.ExtraForNewRun(2, coop: true) == FloorSettings.MaxFloors, "host value clamp high act 3");
+
+            HostSync.Apply(new HostValues(4, 5, 6, 25, 10, 10, 10));
+            var hostMix = RunSettings.MixForNewRun(coop: true);
+            Require(hostMix.Unknown == 25 && hostMix.Shop == 10 && hostMix.Rest == 10 && hostMix.Elite == 10 && hostMix.Monster == 45,
+                $"host room mix wins in coop, got {hostMix.Unknown}/{hostMix.Shop}/{hostMix.Rest}/{hostMix.Elite}/{hostMix.Monster}");
+            ModEntry.Settings.UnknownPercent = 0;
+            ModEntry.Settings.ShopPercent = 0;
+            ModEntry.Settings.RestPercent = 0;
+            ModEntry.Settings.ElitePercent = 0;
+            Require(!RunSettings.MixForNewRun(coop: false).Custom, "singleplayer keeps the local (vanilla) mix");
 
             HostSync.Apply(2, 3, 4);
             HostSync.Forget();
             Require(RunSettings.ExtraForNewRun(0, coop: true) == 7, "forget restores local values");
 
-            var message = new HostFloorsMessage { Act1 = 2, Act2 = 3, Act3 = 30 };
+            var message = new HostFloorsMessage { Act1 = 2, Act2 = 3, Act3 = FloorSettings.MaxFloors, Unknown = 25, Shop = 10, Rest = 10, Elite = 10 };
             Require(message.ShouldBroadcast, "message must broadcast");
             Require(message.Mode == MegaCrit.Sts2.Core.Multiplayer.Transport.NetTransferMode.Reliable, "message must be reliable");
             Require(message.ShouldBuffer, "message must buffer");
             var writer = new MegaCrit.Sts2.Core.Multiplayer.Serialization.PacketWriter();
             message.Serialize(writer);
-            Require(writer.BytePosition == 3, "three bytes on the wire, got " + writer.BytePosition);
+            Require(writer.BytePosition == 7, "seven bytes on the wire, got " + writer.BytePosition);
             var reader = new MegaCrit.Sts2.Core.Multiplayer.Serialization.PacketReader();
             reader.Reset(writer.Buffer);
             var copy = new HostFloorsMessage();
             copy.Deserialize(reader);
-            Require(copy.Act1 == 2 && copy.Act2 == 3 && copy.Act3 == 30, $"roundtrip {copy.Act1}/{copy.Act2}/{copy.Act3}");
-            Console.WriteLine("PASS: host floor values win in co-op only, clamping, message contract and 3-byte roundtrip.");
+            Require(copy.Act1 == 2 && copy.Act2 == 3 && copy.Act3 == FloorSettings.MaxFloors, $"roundtrip {copy.Act1}/{copy.Act2}/{copy.Act3}");
+            Require(copy.Unknown == 25 && copy.Shop == 10 && copy.Rest == 10 && copy.Elite == 10, "room mix roundtrip");
+            Console.WriteLine("PASS: host floor values and room mix win in co-op only, clamping, message contract and 7-byte roundtrip.");
         }
         finally
         {
@@ -303,6 +326,10 @@ static class SyncHarness
             ModEntry.Settings.Act1ExtraFloors = saved1;
             ModEntry.Settings.Act2ExtraFloors = saved2;
             ModEntry.Settings.Act3ExtraFloors = saved3;
+            ModEntry.Settings.UnknownPercent = savedUnknown;
+            ModEntry.Settings.ShopPercent = savedShop;
+            ModEntry.Settings.RestPercent = savedRest;
+            ModEntry.Settings.ElitePercent = savedElite;
         }
     }
 
@@ -480,4 +507,92 @@ static class MapCompatHarness
             ModEntry.Settings.Act1ExtraFloors = saved;
         }
     }
+}
+
+static class RoomMixHarness
+{
+    public static void Check()
+    {
+        var weights = RoomMix.Normalise(25, 10, 10, 10);
+        Require(weights.Unknown == 25 && weights.Shop == 10 && weights.Rest == 10 && weights.Elite == 10, "normalise keeps the sliders");
+        Require(weights.Monster == 45 && weights.Total == 100, $"monster is the remainder, got {weights.Monster}/{weights.Total}");
+        Require(!RoomMix.Normalise(0, 0, 0, 0).Custom, "all zero must mean the vanilla mix");
+        var over = RoomMix.Normalise(60, 60, 60, 60);
+        Require(over.Total == 100 && over.Special == 100, $"a total above 100 must be rescaled, got {over.Special}");
+
+        var act = ModelDb.Act<Overgrowth>();
+        var plainMix = RoomMix.Normalise(0, 0, 0, 0);
+        try
+        {
+            RunSettings.Bind(act, 30, plainMix);
+            var plain = new StandardActMap(new Rng(5), act, false, false, false);
+            RunSettings.Bind(act, 30, plainMix);
+            var plainAgain = new StandardActMap(new Rng(5), act, false, false, false);
+            Require(Signature(plain) == Signature(plainAgain), "a vanilla mix must stay deterministic");
+            Require(RoomMix.Apply(plain, act, 7UL) == 0, "a vanilla mix must change nothing");
+
+            RunSettings.Bind(act, 30, weights);
+            var mixed = new StandardActMap(new Rng(5), act, false, false, false);
+            RunSettings.Bind(act, 30, weights);
+            var mixedAgain = new StandardActMap(new Rng(5), act, false, false, false);
+            Require(Signature(mixed) == Signature(mixedAgain), "the room mix must be identical on both peers");
+            Require(Signature(mixed) != Signature(plain), "the room mix changed nothing");
+
+            var points = mixed.GetAllMapPoints().ToList();
+            int Count(MapPointType type) => points.Count(p => p.PointType == type);
+            Require(Count(MapPointType.Shop) >= 1, "the mix must keep a shop");
+            Require(Count(MapPointType.RestSite) >= 1, "the mix must keep a rest site");
+            Require(Count(MapPointType.Elite) >= 1 && Count(MapPointType.Elite) <= RoomMix.EliteCap, $"elite budget, got {Count(MapPointType.Elite)}");
+            Require(Count(MapPointType.Unknown) >= 1, "the mix must produce unknown rooms");
+            Require(Count(MapPointType.Monster) > 0, "the mix must keep monsters");
+
+            int rows = mixed.GetRowCount();
+            var changeable = points.Where(p => p.CanBeModified).ToList();
+            Require(points.Where(p => p.coord.row == 1).All(p => p.PointType == MapPointType.Monster), "the first row must stay monsters");
+            Require(points.Where(p => p.coord.row == rows - 7).All(p => p.PointType == MapPointType.Treasure), "the treasure row must stay treasures");
+            Require(points.Where(p => p.coord.row == rows).All(p => p.PointType is MapPointType.RestSite or MapPointType.Boss), "the boss row must stay a rest site");
+            Require(changeable.Where(p => p.PointType == MapPointType.RestSite).All(p => p.coord.row is >= 5 && p.coord.row < rows - 3), "rest sites keep the vanilla row limits");
+            Require(changeable.Where(p => p.PointType == MapPointType.Elite).All(p => p.coord.row >= 6), "elites keep the vanilla row limit");
+
+            var restricted = new HashSet<MapPointType> { MapPointType.Elite, MapPointType.RestSite, MapPointType.Shop };
+            foreach (var point in changeable)
+                if (restricted.Contains(point.PointType))
+                {
+                    Require(!point.Children.Any(child => child.PointType == point.PointType), "two special rooms of the same type may not be adjacent");
+                    Require(!point.parents.Any(parent => parent.PointType == point.PointType), "two special rooms of the same type may not be adjacent");
+                }
+            for (int row = 1; row <= rows; row++)
+            {
+                var inRow = changeable.Where(p => p.coord.row == row).ToList();
+                Require(inRow.Count(p => p.PointType == MapPointType.Shop) <= 1, "at most one shop per row");
+                Require(inRow.Count(p => p.PointType == MapPointType.Elite) <= 1, "at most one elite per row");
+                Require(inRow.Count(p => p.PointType == MapPointType.RestSite) <= 1, "at most one rest site per row");
+            }
+
+            RunSettings.Bind(act, 0, weights);
+            var vanillaLength = new StandardActMap(new Rng(5), act, false, false, false);
+            Require(RoomMix.Apply(vanillaLength, act, 7UL) == 0, "the room mix must not touch a vanilla length map");
+
+            Console.WriteLine("PASS: room mix percentages are normalised, deterministic, and keep the vanilla pacing rules.");
+        }
+        finally
+        {
+            RunSettings.Forget(act);
+        }
+    }
+
+    static string Signature(ActMap map)
+    {
+        var builder = new System.Text.StringBuilder();
+        foreach (var point in map.GetAllMapPoints().OrderBy(p => p.coord.row).ThenBy(p => p.coord.col))
+        {
+            builder.Append(point.coord.row).Append(',').Append(point.coord.col).Append(':').Append(point.PointType).Append('[');
+            foreach (var child in point.Children.OrderBy(c => c.coord.row).ThenBy(c => c.coord.col))
+                builder.Append(child.coord.row).Append(',').Append(child.coord.col).Append(';');
+            builder.Append("] ");
+        }
+        return builder.ToString();
+    }
+
+    static void Require(bool ok, string message) { if (!ok) throw new Exception(message); }
 }

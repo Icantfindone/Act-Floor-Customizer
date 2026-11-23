@@ -44,16 +44,27 @@ public static class ModEntry
 
 public sealed class FloorSettings
 {
+    /// <summary>Highest number of extra floors a single act accepts.</summary>
+    public const int MaxFloors = 50;
+
     public int Act1ExtraFloors { get; set; } = 5;
     public int Act2ExtraFloors { get; set; } = 5;
     public int Act3ExtraFloors { get; set; } = 5;
 
     /// <summary>Add a treasure row every N rows on stretched maps. 0 disables the bonus rows.</summary>
     public int TreasureEveryRows { get; set; } = 7;
+
+    // Room mix: percentages of the still-changeable rooms on a stretched map. All zero keeps the
+    // vanilla mix. Whatever the four values leave over becomes a normal fight.
+    public int UnknownPercent { get; set; }
+    public int ShopPercent { get; set; }
+    public int RestPercent { get; set; }
+    public int ElitePercent { get; set; }
+
     public int ForAct(int index) => Math.Clamp(index switch
     {
         0 => Act1ExtraFloors, 1 => Act2ExtraFloors, 2 => Act3ExtraFloors, _ => 0
-    }, 0, 30);
+    }, 0, MaxFloors);
 
     public static FloorSettings Read(string path)
     {
@@ -68,13 +79,16 @@ public sealed class FloorSettings
                 string[] pair = line.Split('=', 2, StringSplitOptions.TrimEntries);
                 if (pair.Length != 2 || !int.TryParse(pair[1], out int value))
                     throw new FormatException("Invalid setting: " + line);
-                value = Math.Clamp(value, 0, 30);
                 switch (pair[0])
                 {
-                    case "Act1ExtraFloors": result.Act1ExtraFloors = value; break;
-                    case "Act2ExtraFloors": result.Act2ExtraFloors = value; break;
-                    case "Act3ExtraFloors": result.Act3ExtraFloors = value; break;
-                    case "TreasureEveryRows": result.TreasureEveryRows = value; break;
+                    case "Act1ExtraFloors": result.Act1ExtraFloors = Math.Clamp(value, 0, MaxFloors); break;
+                    case "Act2ExtraFloors": result.Act2ExtraFloors = Math.Clamp(value, 0, MaxFloors); break;
+                    case "Act3ExtraFloors": result.Act3ExtraFloors = Math.Clamp(value, 0, MaxFloors); break;
+                    case "TreasureEveryRows": result.TreasureEveryRows = Math.Clamp(value, 0, 30); break;
+                    case "UnknownPercent": result.UnknownPercent = Math.Clamp(value, 0, RoomMix.MaxPercent); break;
+                    case "ShopPercent": result.ShopPercent = Math.Clamp(value, 0, RoomMix.MaxPercent); break;
+                    case "RestPercent": result.RestPercent = Math.Clamp(value, 0, RoomMix.MaxPercent); break;
+                    case "ElitePercent": result.ElitePercent = Math.Clamp(value, 0, RoomMix.MaxPercent); break;
                     default: throw new FormatException("Unknown setting: " + pair[0]);
                 }
             }

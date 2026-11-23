@@ -21,9 +21,13 @@ Expected path: `Slay the Spire 2/mods/ActFloorCustomizer/ActFloorCustomizer.dll`
 
 Open **BaseLib's Mod Config menu → Act Floor Customizer**.
 
-The three sliders set extra regular floors for Acts 1, 2 and 3. Each accepts 0–30; default: 5. Zero keeps that act's normal length. For example, `10 / 10 / 10` adds ten floors per act; it does not set the total to ten.
+The three sliders set extra regular floors for Acts 1, 2 and 3. Each accepts 0–50; default: 5. Zero keeps that act's normal length. For example, `10 / 10 / 10` adds ten floors per act; it does not set the total to ten.
 
 A fourth slider, `Treasure row every N rows`, sets the spacing of the bonus treasure rows (0–30, default 7; 0 disables them). The same value can be edited in `settings.cfg` as `TreasureEveryRows=7`.
+
+Below those, four sliders set the share of each special room type (v0.8.0): unknown, shop, rest site and elite, in percent; everything left over becomes a normal fight. `0 / 0 / 0 / 0` keeps the vanilla mix. If the four numbers add up to more than 100 they are scaled down proportionally. Only stretched acts are rearranged; acts at their normal length stay untouched, and the vanilla pacing rules are kept (elites never above row 6, rest sites never below row 5 and never in the last three rows, no two rooms of the same special type next to each other).
+
+The same values can be written directly into `settings.cfg`: `Act1ExtraFloors`, `Act2ExtraFloors`, `Act3ExtraFloors` (0–50), `TreasureEveryRows` (0–30), `UnknownPercent`, `ShopPercent`, `RestPercent`, `ElitePercent` (0–100).
 
 BaseLib saves settings. Leave the configuration screen after editing. Changes apply to your **next run**, without restarting the game. A run already started keeps its original settings and maps.
 

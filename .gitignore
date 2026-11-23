@@ -7,7 +7,7 @@
 # Keep only the current distributable in the backup.
 /ActFloorCustomizer-*.zip
 !/ActFloorCustomizer-v0.4.0-sts2-v0.113.1.zip
-!/ActFloorCustomizer-v0.7.2-sts2-v0.113.1.zip
+!/ActFloorCustomizer-v0.8.0-sts2-v0.113.1.zip
 # Also ignore the mod's runtime diagnostic log.
 ActFloorCustomizer-diag.log
 # Third-party uploader binaries stay out of the repository.

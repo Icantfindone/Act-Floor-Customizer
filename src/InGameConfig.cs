@@ -21,8 +21,8 @@ public static class InGameConfig
         {
             "Name" => chinese ? "每幕自定义加层" : "Act Floor Customizer",
             "Desc" => chinese
-                ? "每幕增加 0～30 层；地图按原版间距纵向拉伸；联机以房主设置为准。"
-                : "Add 0-30 extra floors per act. The map stretches to keep vanilla spacing; in co-op the host's values apply.",
+                ? "每幕增加 0～50 层；地图按原版间距纵向拉伸；可自定义各类房间的比例；联机以房主设置为准。"
+                : "Add 0-50 extra floors per act. The map stretches to keep vanilla spacing, room types can be re-mixed, and in co-op the host's values apply.",
             "NextRun" => chinese ? "自动保存，下一局生效，无需重启" : "Auto-saved. Applies to your next run. No restart needed.",
             "Act1" => chinese ? "第一幕额外层数" : "Act 1: extra floors",
             "Act2" => chinese ? "第二幕额外层数" : "Act 2: extra floors",
@@ -39,6 +39,14 @@ public static class InGameConfig
             "TreasureHint" => chinese
                 ? "仅对加层后的地图生效：每 N 行把整排房间变成宝箱房（和原版宝箱房一样），0 表示不加。"
                 : "Only for stretched maps: every N rows the whole row becomes treasure rooms, like the vanilla treasure row. 0 disables it.",
+            "MixTitle" => chinese ? "房间比例（仅加层地图，全 0 = 原版比例）" : "Room mix (stretched maps only, all 0 = vanilla mix)",
+            "MixHint" => chinese
+                ? "下面四个数字是百分比的概率：剩下的部分自动是普通战斗。例如 问号 25 / 商店 10 / 休息 10 / 精英 10，就是 25% 问号、10% 商店、10% 休息、10% 精英、45% 普通战斗。原版的摆放规则仍然保留（精英不会连着出、休息点不会出现在开头和结尾等）。"
+                : "The four numbers are percentages; whatever is left becomes a normal fight. For example 25 / 10 / 10 / 10 gives 25% unknown, 10% shop, 10% rest, 10% elite and 45% normal fights. Vanilla pacing rules still apply (no back-to-back elites, no rests at the very start or end, and so on).",
+            "Unknown" => chinese ? "问号房间比例（%）" : "Unknown rooms (%)",
+            "Shop" => chinese ? "商店比例（%）" : "Shops (%)",
+            "Rest" => chinese ? "休息点比例（%）" : "Rest sites (%)",
+            "Elite" => chinese ? "精英比例（%）" : "Elites (%)",
             _ => key
         };
     }
@@ -72,14 +80,23 @@ public static class InGameConfig
 
 public sealed class FloorConfig : SimpleModConfig
 {
-    [ConfigSlider(0, 30, 1, Format = "{0:0}")]
-    public static int Act1ExtraFloors { get => ModEntry.Settings.Act1ExtraFloors; set => ModEntry.Settings.Act1ExtraFloors = Math.Clamp(value, 0, 30); }
-    [ConfigSlider(0, 30, 1, Format = "{0:0}")]
-    public static int Act2ExtraFloors { get => ModEntry.Settings.Act2ExtraFloors; set => ModEntry.Settings.Act2ExtraFloors = Math.Clamp(value, 0, 30); }
-    [ConfigSlider(0, 30, 1, Format = "{0:0}")]
-    public static int Act3ExtraFloors { get => ModEntry.Settings.Act3ExtraFloors; set => ModEntry.Settings.Act3ExtraFloors = Math.Clamp(value, 0, 30); }
+    [ConfigSlider(0, FloorSettings.MaxFloors, 1, Format = "{0:0}")]
+    public static int Act1ExtraFloors { get => ModEntry.Settings.Act1ExtraFloors; set => ModEntry.Settings.Act1ExtraFloors = Math.Clamp(value, 0, FloorSettings.MaxFloors); }
+    [ConfigSlider(0, FloorSettings.MaxFloors, 1, Format = "{0:0}")]
+    public static int Act2ExtraFloors { get => ModEntry.Settings.Act2ExtraFloors; set => ModEntry.Settings.Act2ExtraFloors = Math.Clamp(value, 0, FloorSettings.MaxFloors); }
+    [ConfigSlider(0, FloorSettings.MaxFloors, 1, Format = "{0:0}")]
+    public static int Act3ExtraFloors { get => ModEntry.Settings.Act3ExtraFloors; set => ModEntry.Settings.Act3ExtraFloors = Math.Clamp(value, 0, FloorSettings.MaxFloors); }
     [ConfigSlider(0, 30, 1, Format = "{0:0}")]
     public static int TreasureEveryRows { get => ModEntry.Settings.TreasureEveryRows; set => ModEntry.Settings.TreasureEveryRows = Math.Clamp(value, 0, 30); }
+
+    [ConfigSlider(0, RoomMix.MaxPercent, 5, Format = "{0:0}")]
+    public static int UnknownPercent { get => ModEntry.Settings.UnknownPercent; set => ModEntry.Settings.UnknownPercent = Math.Clamp(value, 0, RoomMix.MaxPercent); }
+    [ConfigSlider(0, RoomMix.MaxPercent, 5, Format = "{0:0}")]
+    public static int ShopPercent { get => ModEntry.Settings.ShopPercent; set => ModEntry.Settings.ShopPercent = Math.Clamp(value, 0, RoomMix.MaxPercent); }
+    [ConfigSlider(0, RoomMix.MaxPercent, 5, Format = "{0:0}")]
+    public static int RestPercent { get => ModEntry.Settings.RestPercent; set => ModEntry.Settings.RestPercent = Math.Clamp(value, 0, RoomMix.MaxPercent); }
+    [ConfigSlider(0, RoomMix.MaxPercent, 5, Format = "{0:0}")]
+    public static int ElitePercent { get => ModEntry.Settings.ElitePercent; set => ModEntry.Settings.ElitePercent = Math.Clamp(value, 0, RoomMix.MaxPercent); }
 
     public override void SetupConfigUI(Control optionContainer)
     {
@@ -87,6 +104,8 @@ public sealed class FloorConfig : SimpleModConfig
         optionContainer.AddChild(CreateRawLabelControl(InGameConfig.Localize("Coop"), 24));
         optionContainer.AddChild(CreateRawLabelControl(InGameConfig.Localize("TreasureHint"), 24));
         optionContainer.AddChild(CreateRawLabelControl(InGameConfig.Localize("PerfHint"), 24));
+        optionContainer.AddChild(CreateRawLabelControl(InGameConfig.Localize("MixTitle"), 24));
+        optionContainer.AddChild(CreateRawLabelControl(InGameConfig.Localize("MixHint"), 24));
         base.SetupConfigUI(optionContainer);
     }
 }
@@ -98,7 +117,18 @@ internal static class BaseLibLabelPatch
     static bool Prefix(ModConfig __instance, string labelName, ref string __result)
     {
         if (__instance is not FloorConfig) return true;
-        string? key = labelName switch { "Act1ExtraFloors" => "Act1", "Act2ExtraFloors" => "Act2", "Act3ExtraFloors" => "Act3", "TreasureEveryRows" => "Treasure", _ => null };
+        string? key = labelName switch
+        {
+            "Act1ExtraFloors" => "Act1",
+            "Act2ExtraFloors" => "Act2",
+            "Act3ExtraFloors" => "Act3",
+            "TreasureEveryRows" => "Treasure",
+            "UnknownPercent" => "Unknown",
+            "ShopPercent" => "Shop",
+            "RestPercent" => "Rest",
+            "ElitePercent" => "Elite",
+            _ => null
+        };
         if (key == null) return true;
         __result = InGameConfig.Localize(key);
         return false;
@@ -117,14 +147,19 @@ internal static class BaseLibTitlePatch
 }
 public static class RunSettings
 {
-    private sealed record Snapshot(int Extra);
+    private sealed record Snapshot(int Extra, RoomMix.Weights Mix);
     private static readonly ConditionalWeakTable<ActModel, Snapshot> Snapshots = new();
     public static int ForAct(ActModel act) => Snapshots.TryGetValue(act, out var value) ? value.Extra : ModEntry.Settings.ForAct(act.Index);
-    public static void Bind(ActModel act, int extra)
+    public static RoomMix.Weights MixForAct(ActModel act) => Snapshots.TryGetValue(act, out var value) ? value.Mix : RoomMix.Current();
+    public static void Bind(ActModel act, int extra) => Bind(act, extra, RoomMix.Current());
+    public static void Bind(ActModel act, int extra, RoomMix.Weights mix)
     {
         Snapshots.Remove(act);
-        Snapshots.Add(act, new Snapshot(Math.Clamp(extra, 0, 30)));
+        Snapshots.Add(act, new Snapshot(Math.Clamp(extra, 0, FloorSettings.MaxFloors), mix));
     }
+
+    // Used by the tests: drop the snapshot so the act follows the menu settings again.
+    public static void Forget(ActModel act) => Snapshots.Remove(act);
 
     // All acts are bound before the native encounter pools are generated. In co-op every peer builds
     // its own RunState from the same seed, so the host's numbers must win here or the peers would
@@ -132,17 +167,25 @@ public static class RunSettings
     public static void BindNewRun(RunState state)
     {
         bool coop = state.Players.Count > 1;
-        foreach (var act in state.Acts) Bind(act, ExtraForNewRun(act.Index, coop));
-        if (coop) MapLayout.Diag($"bindNewRun: coop={coop} extra={ExtraForNewRun(0, coop)}/{ExtraForNewRun(1, coop)}/{ExtraForNewRun(2, coop)}");
+        RoomMix.Weights mix = MixForNewRun(coop);
+        foreach (var act in state.Acts) Bind(act, ExtraForNewRun(act.Index, coop), mix);
+        if (coop) MapLayout.Diag($"bindNewRun: coop={coop} extra={ExtraForNewRun(0, coop)}/{ExtraForNewRun(1, coop)}/{ExtraForNewRun(2, coop)} mix={mix.Unknown}/{mix.Shop}/{mix.Rest}/{mix.Elite}");
     }
 
-    // Single rule for the whole feature: in co-op the host's three numbers apply to every peer,
+    // Single rule for the whole feature: in co-op the host's settings apply to every peer,
     // everywhere else the local sliders apply.
     public static int ExtraForNewRun(int actIndex, bool coop)
     {
-        if (coop && HostSync.TryGet(out int act1, out int act2, out int act3))
-            return Math.Clamp(actIndex switch { 0 => act1, 1 => act2, 2 => act3, _ => 0 }, 0, 30);
+        if (coop && HostSync.TryGet(out var host))
+            return Math.Clamp(actIndex switch { 0 => host.Act1, 1 => host.Act2, 2 => host.Act3, _ => 0 }, 0, FloorSettings.MaxFloors);
         return ModEntry.Settings.ForAct(actIndex);
+    }
+
+    public static RoomMix.Weights MixForNewRun(bool coop)
+    {
+        if (coop && HostSync.TryGet(out var host))
+            return RoomMix.Normalise(host.Unknown, host.Shop, host.Rest, host.Elite);
+        return RoomMix.Current();
     }
 
     // v0.2+ saves already store the full encounter pools for every act. Recover the

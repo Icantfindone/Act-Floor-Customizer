@@ -1,4 +1,4 @@
-# ActFloorCustomizer v0.7.2
+# ActFloorCustomizer v0.8.0
 
 See 联机安装与使用说明.md or INSTALL_AND_COOP_EN.md for installation and co-op.
 
@@ -26,6 +26,12 @@ Vanilla adds exactly one row of treasure rooms, seven rows above the boss, so a 
 
 Two relics/cards replace the standard act map, and both ignored the extra floors. The treasure map card swaps act 2 for an hourglass map whose constructor calls `ActModel.GetNumberOfRooms` — a call the JIT inlines, so the room-count patch never fired there and the act stayed at 15 rows. The call site is now rewritten by a transpiler, and the map gets the same scaled point budget as a standard act. That map also ran `MapPathPruning`, which enumerates every possible route and is exponential in the number of rows: harmless at 16 rows, ~50 million routes at 46 rows, which is what froze the game in a real co-op run. Maps longer than 20 rows now skip that pass (the generator already guarantees every point reaches the boss). The golden compass map was a fixed 16-room straight line; it is now stretched to the configured room count while keeping its vanilla mix and its first/last rooms.
 
+## Room mix (v0.8.0)
+
+The extra floors used to repeat the vanilla proportions, so a 40-floor act was still mostly normal fights. Four sliders on the config page now set the share of unknown rooms, shops, rest sites and elites (0–100 %); the remainder becomes normal fights, so the five shares always add up to 100. `0 / 0 / 0 / 0` means "keep the vanilla mix" and is the default, and every value is also writable in `settings.cfg` (`UnknownPercent`, `ShopPercent`, `RestPercent`, `ElitePercent`).
+
+The re-roll runs on the finished map, only on acts that actually gained floors, and only on points vanilla marked as changeable, so the first row (monsters), the treasure row, the starting rooms and the boss rows keep their types. The vanilla pacing rules are re-applied rather than dropped: elites never above row 6, rest sites never below row 5 or in the last three rows, no two rooms of the same special type next to each other, and at most one shop/elite/rest per row. At least one shop and one rest site are kept when their share is above zero, and elites are capped at 14. Randomness comes from a stream derived from the map's own RNG, so both co-op peers roll the same result.
+
 ## Map stretch (v0.6.0)
 
 A longer map used to be drawn on the same fixed-height canvas, so the per-row distance shrank and, past roughly 23 rows, went negative: rooms sat on top of each other. The map screen now keeps the vanilla row spacing and grows the canvas with the row count instead, moves the boss marker up by the same amount, and extends the top scroll limit so the added rows remain reachable. The parchment background is a three-part scroll: the two rolled ends are left completely untouched and the flat middle is filled by stacking strips of the middle texture at the vanilla drawn width (each strip only about 6% taller than vanilla), so the sheet grows upward with its bottom edge pinned in place and the paper stays exactly as wide as the rolled ends. Column spacing and room size are unchanged. With every floor setting at 0 the replacements return the exact vanilla constants, so drawing is unchanged.
@@ -36,13 +42,14 @@ Extra floors multiply the work every map-drawing mod does per frame, so a mod th
 
 ## Verification status
 
-- Automated tests cover config metadata, setters, clamping and localization, 112 offline map/encounter/determinism/save-load cases, the layout stretch maths, and the co-op rule: host values win in a multiplayer run, local sliders still win in singleplayer, clamping, the message contract (broadcast, reliable, buffered) and a three-byte serialize/deserialize roundtrip. The layout transpilers are checked against the shipping assembly: they replace the map height constant once, both boss offsets, and all four scroll-limit constants (`height=1, boss=2, scroll=4`), and the tests assert that stretch 1 reproduces every vanilla constant exactly and that the boss-to-last-row gap is unchanged at stretch 1, 2 and 3.
+- Automated tests cover config metadata, setters, clamping and localization, 128 offline map/encounter/determinism/save-load cases over 0–50 extra floors, the layout stretch maths, the co-op rule (host values and host room mix win in a multiplayer run, local sliders still win in singleplayer, clamping, the message contract and a seven-byte serialize/deserialize roundtrip), and the room mix (normalisation, determinism on both peers, vanilla pacing rules kept, untouched on vanilla-length acts). The layout transpilers are checked against the shipping assembly: they replace the map height constant once, both boss offsets, and all four scroll-limit constants (`height=1, boss=2, scroll=4`), and the tests assert that stretch 1 reproduces every vanilla constant exactly and that the boss-to-last-row gap is unchanged at stretch 1, 2 and 3.
 - Real-game log from 2026-11-22 confirms BaseLib registered the mod, built the config page and saved `%APPDATA%\SlayTheSpire2\mod_configs\ActFloorCustomizer.cfg` on quit. See `evidence/verification-2026-11-22-ingame.md`.
 - The stretched map and the parchment were confirmed on screen by the user; scrolling to the very top of a long map was not separately checked.
 - **The v0.7.0 co-op sync has been confirmed in a real two-player lobby** (2026-11-23): with the host on 30/30/30 and the client on 0/0/0, the client's diagnostics recorded `lobby: host floors 30/30/30 from …`, `bindNewRun: coop=True extra=30/30/30`, and both peers built the same 45/44/43-room acts. Diagnostics are opt-in and off by default: drop a `%APPDATA%\SlayTheSpire2\ActFloorCustomizer-test.txt` to enable `ActFloorCustomizer-diag.log`, delete it to stop.
 - The v0.7.1 in-game language split was confirmed by the user for both languages (config page, labels and mod-list name follow the game language); the patch itself is also covered by the offline harness.
-- The 112 figure counts offline cases, not in-game or online playthroughs.
+- The 128 figure counts offline cases, not in-game or online playthroughs.
 - v0.7.2: the treasure-row series, the special-map fixes (spoils rows, pruning guard, golden path stretch) and the parchment change are covered by the offline suite; the in-game look of the longer parchment (width matching the rolled ends, no overhang at the bottom of act 2) and the 45-row spoils map and the bonus treasure rows were then confirmed on screen by the user. The v0.7.0 co-op sync has since been confirmed in a real lobby through the diagnostics (`lobby: host floors 30/30/30 from …`, `bindNewRun: coop=True`).
+- v0.8.0: the 0–50 floor range and the four room-mix sliders are covered by the offline suite; the in-game look and feel of the custom mix (and of a 50-floor act) has **not** been played yet.
 
 ## Layout
 

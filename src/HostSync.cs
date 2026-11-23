@@ -14,11 +14,17 @@ namespace ActFloorCustomizer;
 // counts, their acts get different room counts, different encounter pools and different maps.
 // There is no host-to-client run state transfer to lean on, so the host's values are broadcast
 // while the lobby is still open, before any peer runs RunState.CreateForNewRun.
+public readonly record struct HostValues(int Act1, int Act2, int Act3, int Unknown, int Shop, int Rest, int Elite);
+
 public struct HostFloorsMessage : INetMessage
 {
     public int Act1;
     public int Act2;
     public int Act3;
+    public int Unknown;
+    public int Shop;
+    public int Rest;
+    public int Elite;
 
     public bool ShouldBroadcast => true;
     public NetTransferMode Mode => NetTransferMode.Reliable;
@@ -27,9 +33,13 @@ public struct HostFloorsMessage : INetMessage
 
     public void Serialize(PacketWriter writer)
     {
-        writer.WriteByte((byte)Math.Clamp(Act1, 0, 30));
-        writer.WriteByte((byte)Math.Clamp(Act2, 0, 30));
-        writer.WriteByte((byte)Math.Clamp(Act3, 0, 30));
+        writer.WriteByte((byte)Math.Clamp(Act1, 0, FloorSettings.MaxFloors));
+        writer.WriteByte((byte)Math.Clamp(Act2, 0, FloorSettings.MaxFloors));
+        writer.WriteByte((byte)Math.Clamp(Act3, 0, FloorSettings.MaxFloors));
+        writer.WriteByte((byte)Math.Clamp(Unknown, 0, RoomMix.MaxPercent));
+        writer.WriteByte((byte)Math.Clamp(Shop, 0, RoomMix.MaxPercent));
+        writer.WriteByte((byte)Math.Clamp(Rest, 0, RoomMix.MaxPercent));
+        writer.WriteByte((byte)Math.Clamp(Elite, 0, RoomMix.MaxPercent));
     }
 
     public void Deserialize(PacketReader reader)
@@ -37,6 +47,10 @@ public struct HostFloorsMessage : INetMessage
         Act1 = reader.ReadByte();
         Act2 = reader.ReadByte();
         Act3 = reader.ReadByte();
+        Unknown = reader.ReadByte();
+        Shop = reader.ReadByte();
+        Rest = reader.ReadByte();
+        Elite = reader.ReadByte();
     }
 }
 
@@ -44,20 +58,16 @@ public static class HostSync
 {
     private static readonly object Gate = new();
     private static bool _hasHostValues;
-    private static int _act1;
-    private static int _act2;
-    private static int _act3;
+    private static HostValues _values;
     private static INetGameService? _listening;
     private static MessageHandlerDelegate<HostFloorsMessage>? _handler;
 
     /// <summary>Host values received for the run that is about to start, if any.</summary>
-    public static bool TryGet(out int act1, out int act2, out int act3)
+    public static bool TryGet(out HostValues values)
     {
         lock (Gate)
         {
-            act1 = _act1;
-            act2 = _act2;
-            act3 = _act3;
+            values = _values;
             return _hasHostValues;
         }
     }
@@ -67,9 +77,7 @@ public static class HostSync
         lock (Gate)
         {
             _hasHostValues = false;
-            _act1 = 0;
-            _act2 = 0;
-            _act3 = 0;
+            _values = default;
         }
     }
 
@@ -104,33 +112,45 @@ public static class HostSync
         {
             Act1 = ModEntry.Settings.ForAct(0),
             Act2 = ModEntry.Settings.ForAct(1),
-            Act3 = ModEntry.Settings.ForAct(2)
+            Act3 = ModEntry.Settings.ForAct(2),
+            Unknown = ModEntry.Settings.UnknownPercent,
+            Shop = ModEntry.Settings.ShopPercent,
+            Rest = ModEntry.Settings.RestPercent,
+            Elite = ModEntry.Settings.ElitePercent
         };
         try
         {
             service.SendMessage(message);
-            MapLayout.Diag($"lobby: sent host floors {message.Act1}/{message.Act2}/{message.Act3}");
+            MapLayout.Diag($"lobby: sent host floors {message.Act1}/{message.Act2}/{message.Act3} mix={message.Unknown}/{message.Shop}/{message.Rest}/{message.Elite}");
         }
         catch (Exception ex) { Console.WriteLine("[ActFloorCustomizer] Send host floors: " + ex.Message); }
     }
 
     private static void OnHostFloors(HostFloorsMessage message, ulong senderId)
     {
-        Apply(message.Act1, message.Act2, message.Act3);
-        MapLayout.Diag($"lobby: host floors {message.Act1}/{message.Act2}/{message.Act3} from {senderId}");
+        Apply(new HostValues(message.Act1, message.Act2, message.Act3, message.Unknown, message.Shop, message.Rest, message.Elite));
+        MapLayout.Diag($"lobby: host floors {message.Act1}/{message.Act2}/{message.Act3} mix={message.Unknown}/{message.Shop}/{message.Rest}/{message.Elite} from {senderId}");
     }
 
     /// <summary>Stores the host's values; the next co-op run binds them to its acts.</summary>
-    public static void Apply(int act1, int act2, int act3)
+    public static void Apply(HostValues values)
     {
         lock (Gate)
         {
-            _act1 = Math.Clamp(act1, 0, 30);
-            _act2 = Math.Clamp(act2, 0, 30);
-            _act3 = Math.Clamp(act3, 0, 30);
+            _values = new HostValues(
+                Math.Clamp(values.Act1, 0, FloorSettings.MaxFloors),
+                Math.Clamp(values.Act2, 0, FloorSettings.MaxFloors),
+                Math.Clamp(values.Act3, 0, FloorSettings.MaxFloors),
+                Math.Clamp(values.Unknown, 0, RoomMix.MaxPercent),
+                Math.Clamp(values.Shop, 0, RoomMix.MaxPercent),
+                Math.Clamp(values.Rest, 0, RoomMix.MaxPercent),
+                Math.Clamp(values.Elite, 0, RoomMix.MaxPercent));
             _hasHostValues = true;
         }
     }
+
+    /// <summary>Floor-only overload; keeps the vanilla mix.</summary>
+    public static void Apply(int act1, int act2, int act3) => Apply(new HostValues(act1, act2, act3, 0, 0, 0, 0));
 }
 
 [HarmonyPatch]

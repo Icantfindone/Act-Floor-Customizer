@@ -21,6 +21,6 @@
     <!-- The uploader's own steam_api64.dll (317080 bytes) is older than the game's and throws
          EntryPointNotFoundException inside CSteamAPIContext.Init(); always use the game's copy. -->
     <None Include="$(Sts2Dir)\steam_api64.dll" Link="steam_api64.dll" CopyToOutputDirectory="PreserveNewest" />
-    <None Include="..\steam_appid.txt" Link="steam_appid.txt" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="steam_appid.txt" Link="steam_appid.txt" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

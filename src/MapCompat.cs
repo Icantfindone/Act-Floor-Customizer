@@ -164,14 +164,24 @@ public static class TreasureRows
     new Type[] { typeof(Rng), typeof(ActModel), typeof(bool), typeof(bool), typeof(bool), typeof(MapPointTypeCounts), typeof(bool) })]
 internal static class TreasureRowsStandardPatch
 {
-    static void Postfix(StandardActMap __instance, ActModel actModel) => TreasureRows.Apply(__instance, actModel);
+    static void Postfix(StandardActMap __instance, ActModel actModel, Rng mapRng)
+    {
+        TreasureRows.Apply(__instance, actModel);
+        // Clone the act's own stream so the mix is identical on every peer and never steals
+        // numbers from the generator itself.
+        RoomMix.Apply(__instance, actModel, new Rng(mapRng.ToSerializable()));
+    }
 }
 
 [HarmonyPatch(typeof(SpoilsActMap), MethodType.Constructor,
     new Type[] { typeof(IRunState), typeof(MapPointTypeCounts) })]
 internal static class TreasureRowsSpoilsPatch
 {
-    static void Postfix(SpoilsActMap __instance, IRunState runState) => TreasureRows.Apply(__instance, runState.Act);
+    static void Postfix(SpoilsActMap __instance, IRunState runState)
+    {
+        TreasureRows.Apply(__instance, runState.Act);
+        RoomMix.Apply(__instance, runState.Act, runState.Rng.Seed);
+    }
 }
 
 // The golden compass relic swaps the act for a straight seven-column line with a fixed sixteen
@@ -198,6 +208,10 @@ public static class GoldenPathPatch
     /// <summary>Entry point used by the rewritten constructor.</summary>
     public static List<MapPointType> Types(List<MapPointType> vanilla, IRunState runState) =>
         Stretch(vanilla, runState.Act, runState.Players.Count > 1);
+
+    // The straight line is a normal map once built, so the room mix applies to it as well.
+    static void Postfix(GoldenPathActMap __instance, IRunState runState) =>
+        RoomMix.Apply(__instance, runState.Act, runState.Rng.Seed);
 
     /// <summary>Replaces the fixed sixteen room pattern with one that fills the configured length.</summary>
     public static List<MapPointType> Stretch(List<MapPointType> vanilla, ActModel act, bool multiplayer)
