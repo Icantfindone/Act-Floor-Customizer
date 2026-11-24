@@ -5,6 +5,25 @@ Every release, newest first. Game version: Slay the Spire 2 v0.113.1.
 
 ---
 
+## 0.8.4 — 2026-11-23
+
+### The quill covers the whole stretched map
+The map drawing layer (`NMapDrawings`) was still sized like one vanilla screen of parchment, so on a
+stretched act only a band of the sheet accepted ink. The layer is now grown to the full sheet height
+and its half-resolution drawing sub-viewport is resized with it; strokes are still stored in
+normalised map coordinates, so both players of a co-op run agree on where a line is. Rolling back to a
+normal-length act restores the vanilla size.
+
+### Crash investigation notes
+A reported freeze ending in a black screen was a graphics device removal (`DXGI_ERROR_DEVICE_HUNG`,
+D3D12) that followed eleven `SAMPLERS descriptors heap` warnings — far too many distinct textures in
+one frame. The log shows the frame time collapsing under another mod's per-frame card evaluation
+(thousands of `Localization formatting error` exceptions) before the device was lost, and this mod
+adds no per-frame work to that path. If a D3D12 device hang happens again, the game's own
+`launch_vulkan.bat` runs it on Vulkan instead.
+
+---
+
 ## 0.8.3 — 2026-11-23
 
 ### Links to the repository

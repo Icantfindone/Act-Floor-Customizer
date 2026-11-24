@@ -299,6 +299,10 @@ public static class MapLayout
 
         public readonly List<TextureRect> MidTiles = new();
 
+        /// <summary>Vanilla size of the drawing layer, captured before we grow it.</summary>
+        public Vector2 DrawingsSize;
+
+        public bool DrawingsCaptured;
     }
 
     private static readonly ConditionalWeakTable<NMapBg, BgState> BgStates = new();
@@ -511,6 +515,84 @@ public static class MapLayout
         return totalHeight - VanillaPieceHeight;
     }
 
+    // ---------------------------------------------------------------------
+    // Map drawings (the quill layer).
+    //
+    // Vanilla sizes this Control to the parchment once and converts every stroke through
+    // ToNetPosition, which divides by base.Size.Y. On a stretched map the sheet is several
+    // times taller but the drawing layer keeps its vanilla height, so only the band under
+    // the rolled top accepts ink. Growing the layer (and the half-resolution sub-viewport
+    // that renders the strokes, which vanilla sizes at half of the layer) makes the whole
+    // map drawable again; every stroke stays in normalised net space, so peers with the same
+    // floor count still agree on where a line is.
+    // ---------------------------------------------------------------------
+
+    private static readonly FieldInfo? DrawingStatesField = AccessTools.Field(typeof(NMapDrawings), "_drawingStates");
+
+    private static readonly Dictionary<Type, FieldInfo?> ViewportFieldCache = new();
+
+    private static readonly Dictionary<Type, FieldInfo?> DrawingTextureFieldCache = new();
+
+    private static void FitDrawings(NMapDrawings drawings, NMapBg bg, BgState state)
+    {
+        if (!state.DrawingsCaptured)
+        {
+            state.DrawingsSize = drawings.Size;
+            state.DrawingsCaptured = true;
+        }
+        bool restore = Stretch <= 1.001f;
+        float width = state.DrawingsSize.X > 0f ? state.DrawingsSize.X : VanillaPieceWidth;
+        float vanillaHeight = state.DrawingsSize.Y > 0f ? state.DrawingsSize.Y : VanillaHeight;
+        float height = restore ? vanillaHeight : Mathf.Max(vanillaHeight, bg.Size.Y);
+        if (Mathf.Abs(drawings.Size.X - width) > 0.5f || Mathf.Abs(drawings.Size.Y - height) > 0.5f)
+        {
+            drawings.CustomMinimumSize = new Vector2(width, height);
+            drawings.Size = new Vector2(width, height);
+            Diag($"drawings size={drawings.Size.X:0.#}x{drawings.Size.Y:0.#} vanilla={state.DrawingsSize.X:0.#}x{state.DrawingsSize.Y:0.#}");
+        }
+        ResizeDrawingStates(drawings, width, height);
+    }
+
+    private static void ResizeDrawingStates(NMapDrawings drawings, float width, float height)
+    {
+        if (DrawingStatesField?.GetValue(drawings) is not System.Collections.IEnumerable states) return;
+        foreach (object? entry in states)
+        {
+            if (entry == null) continue;
+            Type type = entry.GetType();
+            if (!ViewportFieldCache.TryGetValue(type, out FieldInfo? viewportField))
+            {
+                viewportField = AccessTools.Field(type, "drawViewport");
+                ViewportFieldCache[type] = viewportField;
+            }
+            if (!DrawingTextureFieldCache.TryGetValue(type, out FieldInfo? textureField))
+            {
+                textureField = AccessTools.Field(type, "drawingTexture");
+                DrawingTextureFieldCache[type] = textureField;
+            }
+            // Vanilla renders the strokes into a half-resolution sub-viewport and stretches that
+            // texture back over the layer, so both have to follow the new layer size.
+            if (viewportField?.GetValue(entry) is SubViewport viewport)
+            {
+                Vector2I wanted = new(Mathf.Max(1, (int)(width * 0.5f)), Mathf.Max(1, (int)(height * 0.5f)));
+                if (viewport.Size != wanted)
+                {
+                    viewport.Size = wanted;
+                    Diag($"drawings viewport={wanted.X}x{wanted.Y}");
+                }
+            }
+            if (textureField?.GetValue(entry) is TextureRect texture)
+            {
+                if (texture.Position != Vector2.Zero) texture.Position = Vector2.Zero;
+                if (Mathf.Abs(texture.Size.X - width) > 0.5f || Mathf.Abs(texture.Size.Y - height) > 0.5f)
+                {
+                    texture.Size = new Vector2(width, height);
+                    Diag($"drawings texture={texture.Size.X:0.#}x{texture.Size.Y:0.#}");
+                }
+            }
+        }
+    }
+
     public static void ApplyBackground(NMapBg bg, bool positionWasReset)
     {
         try
@@ -577,7 +659,10 @@ public static class MapLayout
             try
             {
                 if (AccessTools.Field(typeof(NMapBg), "_drawings")?.GetValue(bg) is NMapDrawings drawings)
+                {
+                    FitDrawings(drawings, bg, state);
                     drawings.RepositionBasedOnBackground(bg);
+                }
             }
             catch (Exception ex)
             {

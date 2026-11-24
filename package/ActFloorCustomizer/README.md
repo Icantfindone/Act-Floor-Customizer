@@ -1,4 +1,4 @@
-# ActFloorCustomizer v0.8.3
+# ActFloorCustomizer v0.8.4
 
 Add extra floors to Acts 1, 2 and 3 of Slay the Spire 2 — up to 50 per act — with the map, the
 parchment background, the treasure rows and the room mix all adjusting to the new length.
@@ -61,15 +61,14 @@ Settings are saved automatically and apply to the next run; the numbers can also
 
 Details are in the changelog.
 
-## This release: 0.8.3
+## This release: 0.8.4
 
-- Links to this repository are now in three places: both Workshop pages (English and 简体中文) have a
-  **Links** section, and the mod description that the in-game mod list shows ends with the GitHub
-  address.
-- Every GitHub release carries the installable zip as an asset, so manual install no longer needs a
-  build: download it, unzip, copy the `ActFloorCustomizer` folder into `Slay the Spire 2\mods\`.
-- Releases are now produced by `tools/release.ps1` plus `tools/publish-release.py`; see
-  [workshop/README.md](workshop/README.md).
+- The quill drawing layer now grows with the parchment. Vanilla sizes that layer to one screen-tall
+  map, so on a stretched act only the top band accepted ink; the layer and its half-resolution
+  drawing viewport are now resized to the full sheet, which makes the whole map drawable again.
+  Strokes stay in normalised map space, so both players of a co-op run still agree on where a line is.
+- Nothing else changed: floors, treasure rows, room mix, special act maps and the co-op rule are the
+  same as 0.8.3.
 
 The full list of changes for every version is in [CHANGELOG.md](docs/CHANGELOG.md).
 
