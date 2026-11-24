@@ -13,7 +13,7 @@ Steam 上传器（ModUploader）的 `workshop.json` 只有一个标题和一个�
 cd workshop\localizer
 dotnet build -c Release
 cd bin\Release\net9.0
-.\WorkshopLocalizer.exe "..\..\..\..\localization-zhs.md" "0.8.3：模组说明与创意工坊增加 GitHub 链接"
+.\WorkshopLocalizer.exe "..\..\..\..\localization-zhs.md" "0.8.5：红叉重新落回宝箱上"
 ```
 
 要求：Steam 客户端已登录、以 `danger-full-access` 运行。下面两个代码块会被工具自动读取

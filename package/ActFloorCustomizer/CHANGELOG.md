@@ -5,6 +5,22 @@ Every release, newest first. Game version: Slay the Spire 2 v0.113.1.
 
 ---
 
+## 0.8.5 — 2026-11-24
+
+### The treasure-map marker is back on the special chest
+The treasure map card stores its "X marks the spot" coordinate by taking the first map point whose
+type is `Treasure`. With the bonus treasure rows of a stretched act, that first point is a bonus row
+holding several chests, and the marker ended up there while the real chest row stayed unmarked. A map
+restored from a save is worse: it arrives as a `SavedActMap`, so the earlier "is this the spoils map"
+check no longer identified it at all.
+
+The marker now uses the deepest treasure row — the vanilla chest row, seven rows above the boss,
+which every bonus row sits above — so it works for a freshly generated map and for a loaded one. A
+second pass moves the quest marker itself (the red X is drawn from `MapPoint.Quests`) onto that chest
+when the card had already placed it elsewhere, which also repairs a run saved with the old marker.
+
+---
+
 ## 0.8.4 — 2026-11-23
 
 ### The quill covers the whole stretched map

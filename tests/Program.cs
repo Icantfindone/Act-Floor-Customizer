@@ -405,6 +405,27 @@ static class MapCompatHarness
             if (markerPatches == null || !markerPatches.Postfixes.Any(p => p.owner == "bobojo.ActFloorCustomizer"))
                 throw new Exception("the spoils marker postfix is not installed");
 
+            var questMethod = HarmonyLib.AccessTools.Method(
+                typeof(MegaCrit.Sts2.Core.Models.Cards.SpoilsMap),
+                nameof(MegaCrit.Sts2.Core.Models.Cards.SpoilsMap.AfterMapGenerated));
+            var questPatches = questMethod == null ? null : HarmonyLib.Harmony.GetPatchInfo(questMethod);
+            if (questPatches == null || !questPatches.Postfixes.Any(p => p.owner == "bobojo.ActFloorCustomizer"))
+                throw new Exception("the spoils quest postfix is not installed");
+
+            // The special chest is the deepest treasure row, because bonus rows only sit above it.
+            // This also covers a map restored from a save, which no longer reports its own type.
+            var chestMap = new StandardActMap(new Rng(1), act, false, false, false);
+            int anchorRow = chestMap.GetRowCount() - 7;
+            var anchorChest = SpoilsMapMarkerPatch.FindChest(chestMap);
+            if (anchorChest == null || anchorChest.coord.row != anchorRow)
+                throw new Exception("the marker must pick the treasure row seven rows above the boss");
+            foreach (var point in chestMap.GetAllMapPoints())
+                if (point.coord.row == anchorRow && point.PointType == MapPointType.Treasure)
+                    point.PointType = MapPointType.Monster;
+            var deepestChest = SpoilsMapMarkerPatch.FindChest(chestMap);
+            if (deepestChest == null || deepestChest.coord.row != anchorRow - TreasureRows.Every)
+                throw new Exception("the marker must fall back to the deepest treasure row");
+
             var template = new List<MapPointType>
             {
                 MapPointType.Monster, MapPointType.Unknown, MapPointType.Monster, MapPointType.RestSite,

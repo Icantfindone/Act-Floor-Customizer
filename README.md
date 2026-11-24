@@ -1,4 +1,4 @@
-# ActFloorCustomizer v0.8.4
+# ActFloorCustomizer v0.8.5
 
 Add extra floors to Acts 1, 2 and 3 of Slay the Spire 2 — up to 50 per act — with the map, the
 parchment background, the treasure rows and the room mix all adjusting to the new length.
@@ -61,14 +61,16 @@ Settings are saved automatically and apply to the next run; the numbers can also
 
 Details are in the changelog.
 
-## This release: 0.8.4
+## This release: 0.8.5
 
-- The quill drawing layer now grows with the parchment. Vanilla sizes that layer to one screen-tall
-  map, so on a stretched act only the top band accepted ink; the layer and its half-resolution
-  drawing viewport are now resized to the full sheet, which makes the whole map drawable again.
-  Strokes stay in normalised map space, so both players of a co-op run still agree on where a line is.
-- Nothing else changed: floors, treasure rows, room mix, special act maps and the co-op rule are the
-  same as 0.8.3.
+- The treasure-map ("X marks the spot") marker lands on the real special chest again. The card picks
+  its chest as "the first treasure point in the map", which now matches a bonus treasure row, and a
+  map restored from a save no longer reports its own map type; the marker is now placed on the
+  deepest treasure row (the vanilla one, seven rows above the boss) in both cases.
+- The red X is also moved onto that chest when the card has already put it somewhere else, so a run
+  that was saved with the wrong marker is corrected when it is loaded again.
+- Nothing else changed: floors, treasure rows, room mix, special act maps, the parchment and the
+  co-op rule are the same as 0.8.4.
 
 The full list of changes for every version is in [CHANGELOG.md](docs/CHANGELOG.md).
 

@@ -6,6 +6,7 @@ using System.Reflection.Emit;
 using HarmonyLib;
 using MegaCrit.Sts2.Core.Map;
 using MegaCrit.Sts2.Core.Models;
+using MegaCrit.Sts2.Core.Models.Cards;
 using MegaCrit.Sts2.Core.Random;
 using MegaCrit.Sts2.Core.Runs;
 
@@ -212,36 +213,94 @@ internal static class TreasureRowsSpoilsPatch
 
 /// <summary>
 /// The treasure map card remembers its special chest by taking the first point it finds with
-/// <c>PointType == Treasure</c>. Our bonus treasure rows come first in that enumeration, so the
-/// marker ("X marks the spot") would stick to a bonus row instead of the real chest. Point the card
-/// back at the spoils map's own chest row.
+/// <c>PointType == Treasure</c>. Our bonus treasure rows come first in that enumeration, and a map
+/// loaded from a save goes through the same hook, so the marker ("X marks the spot") can stick to a
+/// bonus row instead of the real chest. Point the card back at the spoils map's own chest row.
 /// </summary>
-[HarmonyPatch(typeof(MegaCrit.Sts2.Core.Models.Cards.SpoilsMap), nameof(MegaCrit.Sts2.Core.Models.Cards.SpoilsMap.ModifyGeneratedMapLate))]
-internal static class SpoilsMapMarkerPatch
+[HarmonyPatch(typeof(SpoilsMap), nameof(SpoilsMap.ModifyGeneratedMapLate))]
+public static class SpoilsMapMarkerPatch
 {
-    static void Postfix(MegaCrit.Sts2.Core.Models.Cards.SpoilsMap __instance, ActMap map)
+    static void Postfix(SpoilsMap __instance, ActMap map, int actIndex)
     {
         try
         {
-            if (map is not SpoilsActMap) return;
-            int row = map.GetRowCount() - 7;
-            MapPoint? chest = null;
-            foreach (MapPoint point in map.GetAllMapPoints())
-            {
-                if (point.coord.row != row) continue;
-                if (point.PointType != MapPointType.Treasure) continue;
-                chest = point;
-                break;
-            }
-            if (chest == null) return;
-            MethodInfo? setter = AccessTools.PropertySetter(typeof(MegaCrit.Sts2.Core.Models.Cards.SpoilsMap), "SpoilsCoord");
-            if (setter == null) return;
-            setter.Invoke(__instance, new object?[] { (MapCoord?)chest.coord });
-            MapLayout.Diag($"spoils: marker row={row} col={chest.coord.col}");
+            if (actIndex != __instance.SpoilsActIndex) return;
+            if (!TryFix(__instance, map)) return;
+            MapPoint? chest = FindChest(map);
+            if (chest != null)
+                MapLayout.Diag($"spoils: marker row={chest.coord.row} col={chest.coord.col}");
         }
         catch (Exception ex)
         {
             MapLayout.Diag("spoils: marker failed " + ex.GetType().Name + ": " + ex.Message);
+        }
+    }
+
+    /// <summary>Points <c>SpoilsCoord</c> at the special chest; false when the map has no chest.</summary>
+    public static bool TryFix(SpoilsMap card, ActMap? map)
+    {
+        MapPoint? chest = FindChest(map);
+        if (chest == null) return false;
+        MethodInfo? setter = AccessTools.PropertySetter(typeof(SpoilsMap), "SpoilsCoord");
+        if (setter != null)
+        {
+            setter.Invoke(card, new object?[] { (MapCoord?)chest.coord });
+            return true;
+        }
+        FieldInfo? field = AccessTools.Field(typeof(SpoilsMap), "<SpoilsCoord>k__BackingField");
+        if (field == null) return false;
+        field.SetValue(card, (MapCoord?)chest.coord);
+        return true;
+    }
+
+    /// <summary>
+    /// The special chest is the deepest treasure row: the vanilla one sits seven rows above the boss
+    /// and every bonus row is above it. A map restored from a save no longer reports its own type, so
+    /// the position is used instead of an <c>is SpoilsActMap</c> check.
+    /// </summary>
+    public static MapPoint? FindChest(ActMap? map)
+    {
+        if (map == null) return null;
+        int preferredRow = map.GetRowCount() - 7;
+        MapPoint? deepest = null;
+        foreach (MapPoint point in map.GetAllMapPoints())
+        {
+            if (point.PointType != MapPointType.Treasure) continue;
+            if (point.coord.row == preferredRow) return point;
+            if (deepest == null || point.coord.row > deepest.coord.row) deepest = point;
+        }
+        return deepest;
+    }
+}
+
+/// <summary>
+/// The red X is drawn for every point in <see cref="MapPoint.Quests"/>. The card adds its quest to
+/// whatever point <c>SpoilsCoord</c> names, so a wrong coordinate leaves the X on a bonus row that
+/// holds several chests. After the card has run, move the quest onto the special chest.
+/// </summary>
+[HarmonyPatch(typeof(SpoilsMap), nameof(SpoilsMap.AfterMapGenerated))]
+internal static class SpoilsMapQuestPatch
+{
+    static void Postfix(SpoilsMap __instance, ActMap map, int actIndex)
+    {
+        try
+        {
+            if (actIndex != __instance.SpoilsActIndex) return;
+            MapPoint? chest = SpoilsMapMarkerPatch.FindChest(map);
+            if (chest == null) return;
+            SpoilsMapMarkerPatch.TryFix(__instance, map);
+            foreach (MapPoint point in map.GetAllMapPoints())
+            {
+                if (ReferenceEquals(point, chest)) continue;
+                if (!point.Quests.Contains(__instance)) continue;
+                point.RemoveQuest(__instance);
+                MapLayout.Diag($"spoils: quest taken off row={point.coord.row} col={point.coord.col}");
+            }
+            if (!chest.Quests.Contains(__instance)) chest.AddQuest(__instance);
+        }
+        catch (Exception ex)
+        {
+            MapLayout.Diag("spoils: quest fix failed " + ex.GetType().Name + ": " + ex.Message);
         }
     }
 }

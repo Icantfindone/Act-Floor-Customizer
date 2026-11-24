@@ -3,7 +3,7 @@
   "name": "Act Floor Customizer",
   "author": "Bobojo",
   "description": "Add 0-50 extra floors to Acts 1, 2 and 3 through BaseLib's in-game config page. Long maps keep the vanilla room spacing and the parchment stretches with them, a row of treasure rooms can be added every N rows, and the share of unknown rooms, shops, rest sites and elites can be tuned. In co-op the host's values apply to everyone. Source, changelog and manual download: github.com/Icantfindone/Act-Floor-Customizer",
-  "version": "0.8.4",
+  "version": "0.8.5",
   "has_pck": false,
   "has_dll": true,
   "affects_gameplay": true,
